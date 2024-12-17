@@ -11,7 +11,7 @@ if(NOT ENABLE_BROWSER)
   return()
 endif()
 
-find_package(CEF REQUIRED)
+find_package(CEF REQUIRED 95)
 find_package(nlohmann_json REQUIRED)
 
 add_library(obs-browser MODULE)
@@ -20,26 +20,28 @@ add_library(OBS::browser ALIAS obs-browser)
 option(ENABLE_BROWSER_PANELS "Enable Qt web browser panel support" OFF)
 mark_as_advanced(ENABLE_BROWSER_PANELS)
 
-set(obs-browser_SOURCES
-  obs-browser-plugin.cpp
-  obs-browser-source.cpp
-  obs-browser-source.hpp
-  obs-browser-source-audio.cpp
-  browser-app.cpp
-  browser-app.hpp
-  browser-client.cpp
-  browser-client.hpp
-  browser-scheme.cpp
-  browser-scheme.hpp
-  browser-version.h
-  cef-headers.hpp
-  deps/base64/base64.cpp
-  deps/base64/base64.hpp
-  deps/wide-string.cpp
-  deps/wide-string.hpp
-  deps/signal-restore.cpp
-  deps/signal-restore.hpp
-  deps/obs-websocket-api/obs-websocket-api.h browser-mac.mm browser-mac.h)
+target_sources(
+  obs-browser
+  PRIVATE # cmake-format: sortable
+          browser-app.cpp
+          browser-app.hpp
+          browser-client.cpp
+          browser-client.hpp
+          browser-scheme.cpp
+          browser-scheme.hpp
+          browser-version.h
+          cef-headers.hpp
+          deps/base64/base64.cpp
+          deps/base64/base64.hpp
+          deps/obs-websocket-api/obs-websocket-api.h
+          deps/signal-restore.cpp
+          deps/signal-restore.hpp
+          deps/wide-string.cpp
+          deps/wide-string.hpp
+          obs-browser-plugin.cpp
+          obs-browser-source-audio.cpp
+          obs-browser-source.cpp
+          obs-browser-source.hpp)
 
 if(OS_MACOS)
   list(APPEND obs-browser_SOURCES

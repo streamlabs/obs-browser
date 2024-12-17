@@ -1,13 +1,16 @@
+
 find_library(COREFOUNDATION CoreFoundation)
 find_library(APPKIT AppKit)
 mark_as_advanced(COREFOUNDATION APPKIT)
 
 target_compile_definitions(obs-browser PRIVATE ENABLE_BROWSER_SHARED_TEXTURE)
+
 if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 14.0.3)
   target_compile_options(obs-browser PRIVATE -Wno-error=unqualified-std-cast-call)
 endif()
 
-target_link_libraries(obs-browser PRIVATE ${COREFOUNDATION} ${APPKIT} CEF::Wrapper)
+target_link_libraries(obs-browser PRIVATE CEF::Wrapper "$<LINK_LIBRARY:FRAMEWORK,CoreFoundation.framework>"
+                                          "$<LINK_LIBRARY:FRAMEWORK,AppKit.framework>")
 
 set(helper_basename browser-helper)
 set(helper_output_name "obs64 Helper")
@@ -29,9 +32,12 @@ foreach(helper IN LISTS helper_suffixes)
   add_executable(${target_name} MACOSX_BUNDLE EXCLUDE_FROM_ALL)
   add_executable(OBS::${target_name} ALIAS ${target_name})
 
-  target_sources(${target_name} PRIVATE browser-app.cpp browser-app.hpp obs-browser-page/obs-browser-page-main.cpp
-                                        cef-headers.hpp browser-mac.mm browser-mac.h)
+  target_sources(
+    ${target_name} PRIVATE # cmake-format: sortable
+                           browser-app.cpp browser-app.hpp browser-mac.mm browser-mac.h cef-headers.hpp obs-browser-page/obs-browser-page-main.cpp)
+
   target_compile_definitions(${target_name} PRIVATE ENABLE_BROWSER_SHARED_TEXTURE)
+
   if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 14.0.3)
     target_compile_options(${target_name} PRIVATE -Wno-error=unqualified-std-cast-call)
   endif()

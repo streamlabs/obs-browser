@@ -201,7 +201,7 @@ bool BrowserClient::OnProcessMessageReceived(
 		if (name == "getScenes") {
 			struct obs_frontend_source_list list = {};
 			obs_frontend_get_scenes(&list);
-			std::vector<const char *> scenes_vector;
+			std::vector<nlohmann::json> scenes_vector;
 			for (size_t i = 0; i < list.sources.num; i++) {
 				obs_source_t *source = list.sources.array[i];
 				scenes_vector.push_back(
@@ -227,7 +227,7 @@ bool BrowserClient::OnProcessMessageReceived(
 		} else if (name == "getTransitions") {
 			struct obs_frontend_source_list list = {};
 			obs_frontend_get_transitions(&list);
-			std::vector<const char *> transitions_vector;
+			std::vector<nlohmann::json> transitions_vector;
 			for (size_t i = 0; i < list.sources.num; i++) {
 				obs_source_t *source = list.sources.array[i];
 				transitions_vector.push_back(
@@ -668,8 +668,9 @@ void BrowserClient::OnLoadEnd(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
 
 		std::string script;
 		script += "const obsCSS = document.createElement('style');";
-		script += "obsCSS.innerHTML = decodeURIComponent(\"" +
-			  uriEncodedCSS + "\");";
+		script += "obsCSS.appendChild(document.createTextNode("
+			  "decodeURIComponent(\"" +
+			  uriEncodedCSS + "\")));";
 		script += "document.querySelector('head').appendChild(obsCSS);";
 
 		frame->ExecuteJavaScript(script, "", 0);

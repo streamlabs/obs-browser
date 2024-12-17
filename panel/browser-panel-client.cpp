@@ -395,6 +395,19 @@ bool QCefBrowserClient::OnContextMenuCommand(
 	return false;
 }
 
+void QCefBrowserClient::OnLoadStart(CefRefPtr<CefBrowser>,
+				    CefRefPtr<CefFrame> frame, TransitionType)
+{
+	if (!frame->IsMain())
+		return;
+
+	std::string script = "window.close = () => ";
+	script += "console.log(";
+	script += "'OBS browser docks cannot be closed using JavaScript.'";
+	script += ");";
+	frame->ExecuteJavaScript(script, "", 0);
+}
+
 void QCefBrowserClient::OnLoadEnd(CefRefPtr<CefBrowser>,
 				  CefRefPtr<CefFrame> frame, int)
 {
