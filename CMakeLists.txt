@@ -17,7 +17,7 @@ find_package(nlohmann_json REQUIRED)
 add_library(obs-browser MODULE)
 add_library(OBS::browser ALIAS obs-browser)
 
-option(ENABLE_BROWSER_PANELS "Enable Qt web browser panel support" ON)
+option(ENABLE_BROWSER_PANELS "Enable Qt web browser panel support" OFF)
 mark_as_advanced(ENABLE_BROWSER_PANELS)
 
 target_sources(
