@@ -1,15 +1,12 @@
+find_package(Qt6 REQUIRED Widgets)
 
-find_library(COREFOUNDATION CoreFoundation)
-find_library(APPKIT AppKit)
-mark_as_advanced(COREFOUNDATION APPKIT)
-
-target_compile_definitions(obs-browser PRIVATE ENABLE_BROWSER_SHARED_TEXTURE)
+target_compile_definitions(obs-browser PRIVATE ENABLE_BROWSER_SHARED_TEXTURE ENABLE_BROWSER_QT_LOOP)
 
 if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 14.0.3)
   target_compile_options(obs-browser PRIVATE -Wno-error=unqualified-std-cast-call)
 endif()
 
-target_link_libraries(obs-browser PRIVATE CEF::Wrapper "$<LINK_LIBRARY:FRAMEWORK,CoreFoundation.framework>"
+target_link_libraries(obs-browser PRIVATE Qt::Widgets CEF::Wrapper "$<LINK_LIBRARY:FRAMEWORK,CoreFoundation.framework>"
                                           "$<LINK_LIBRARY:FRAMEWORK,AppKit.framework>")
 
 set(helper_basename browser-helper)
@@ -34,7 +31,7 @@ foreach(helper IN LISTS helper_suffixes)
 
   target_sources(
     ${target_name} PRIVATE # cmake-format: sortable
-                           browser-app.cpp browser-app.hpp browser-mac.mm browser-mac.h cef-headers.hpp obs-browser-page/obs-browser-page-main.cpp)
+                           browser-app.cpp browser-app.hpp cef-headers.hpp obs-browser-page/obs-browser-page-main.cpp)
 
   target_compile_definitions(${target_name} PRIVATE ENABLE_BROWSER_SHARED_TEXTURE)
 
