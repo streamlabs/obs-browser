@@ -10,7 +10,7 @@ target_link_libraries(obs-browser PRIVATE Qt::Widgets CEF::Wrapper "$<LINK_LIBRA
                                           "$<LINK_LIBRARY:FRAMEWORK,AppKit.framework>")
 
 set(helper_basename browser-helper)
-set(helper_output_name "obs64 Helper")
+set(helper_output_name "OBS Helper")
 set(helper_suffixes "::" " (GPU):_gpu:.gpu" " (Plugin):_plugin:.plugin" " (Renderer):_renderer:.renderer")
 
 foreach(helper IN LISTS helper_suffixes)
