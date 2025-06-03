@@ -401,14 +401,18 @@ static void BrowserInit(obs_data_t *settings_obs)
 		std::string browserSourcePath = binPath;
 		binPath += "/Frameworks/Chromium Embedded Framework.framework";
 		CefString(&settings.framework_dir_path) = binPath;
-		
+
 		// Set the browser-source-path. Streamlabs desktop (if not run within an app)
 		// will not spin up all the helper apps but at least we will not crash.
 		// Streamlabs desktop.app and OBS.app backend will work properly with browser
 		// sources because they can both spin up the helper processes.
-		browserSourcePath += "/Frameworks/obs64 Helper.app/Contents/MacOS/obs64 Helper";
-		CefString(&settings.browser_subprocess_path) = browserSourcePath;
-		blog(LOG_INFO, "Set browser_subprocess_path for obs64 (app bundle): [%s]", browserSourcePath.c_str());
+		browserSourcePath +=
+			"/Frameworks/obs64 Helper.app/Contents/MacOS/obs64 Helper";
+		CefString(&settings.browser_subprocess_path) =
+			browserSourcePath;
+		blog(LOG_INFO,
+		     "Set browser_subprocess_path for obs64 (app bundle): [%s]",
+		     browserSourcePath.c_str());
 #endif
 		std::string obs_locale = obs_get_locale();
 		std::string accepted_languages;
