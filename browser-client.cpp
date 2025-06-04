@@ -115,7 +115,7 @@ bool BrowserClient::OnProcessMessageReceived(
 	const std::string &name = message->GetName();
 	CefRefPtr<CefListValue> input_args = message->GetArgumentList();
 	nlohmann::json json;
-
+	blog(LOG_INFO, "BrowserClient::OnProcessMessageReceived: %s", name.c_str());
 	if (!valid()) {
 		return false;
 	}
@@ -259,6 +259,27 @@ bool BrowserClient::OnProcessMessageReceived(
 		}
 	}
 #else
+	switch (webpage_control_level) {
+	case ControlLevel::All:
+ 
+		[[fallthrough]];
+	case ControlLevel::Advanced:
+		 
+		[[fallthrough]];
+	case ControlLevel::Basic:
+ 
+		[[fallthrough]];
+	case ControlLevel::ReadUser:
+		 
+		[[fallthrough]];
+	case ControlLevel::ReadObs:
+		 
+		[[fallthrough]];
+	case ControlLevel::None:
+		if (name == "getControlLevel") {
+			json = (int)webpage_control_level;
+		}
+	}
 	UNUSED_PARAMETER(name);
 #endif
 

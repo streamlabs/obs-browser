@@ -151,7 +151,7 @@ std::vector<std::string> exposedFunctions = {
 	"startReplayBuffer",   "stopReplayBuffer", "saveReplayBuffer",
 	"startVirtualcam",     "stopVirtualcam",   "getScenes",
 	"setCurrentScene",     "getTransitions",   "getCurrentTransition",
-	"setCurrentTransition"};
+	"setCurrentTransition","obsSourceMessage"};
 
 void BrowserApp::OnContextCreated(CefRefPtr<CefBrowser> browser,
 				  CefRefPtr<CefFrame>,
@@ -412,7 +412,10 @@ bool BrowserApp::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
 			CefRefPtr<CefV8Value> dispatchEvent =
 				globalObj->GetValue("dispatchEvent");
 			dispatchEvent->ExecuteFunction(nullptr, arguments);
-
+			if (!dispatchEvent || !dispatchEvent->IsFunction()) {
+			} else {
+				dispatchEvent->ExecuteFunction(nullptr, arguments);
+			}
 			context->Exit();
 		}
 

@@ -150,6 +150,7 @@ struct BrowserSource {
 	void SendKeyClick(const struct obs_key_event *event, bool key_up);
 	void SetShowing(bool showing);
 	void SetActive(bool active);
+	void SendMessage(const char* message);
 	void Refresh();
 
 #if defined(BROWSER_EXTERNAL_BEGIN_FRAME_ENABLED) && \

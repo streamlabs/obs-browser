@@ -619,6 +619,11 @@ void RegisterBrowserSource()
 			bs->Refresh();
 		bs->SetActive(true);
 	};
+	info.message = [](void *data, obs_data_t *settings) {
+		BrowserSource *bs = static_cast<BrowserSource *>(data);
+		const char *message = obs_data_get_string(settings, "message");
+		bs->SendMessage(message);
+	};
 	info.deactivate = [](void *data) {
 		static_cast<BrowserSource *>(data)->SetActive(false);
 	};
