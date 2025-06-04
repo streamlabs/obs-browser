@@ -9,7 +9,8 @@ if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 14.0.3)
   target_compile_options(obs-browser PRIVATE -Wno-error=unqualified-std-cast-call)
 endif()
 
-target_link_libraries(obs-browser PRIVATE Qt::Widgets CEF::Wrapper "$<LINK_LIBRARY:FRAMEWORK,CoreFoundation.framework>"
+# Streamlabs removed Qt::Widgets. Our obs-browser does not use Qt framework
+target_link_libraries(obs-browser PRIVATE CEF::Wrapper "$<LINK_LIBRARY:FRAMEWORK,CoreFoundation.framework>"
                                           "$<LINK_LIBRARY:FRAMEWORK,AppKit.framework>")
 
 set(helper_basename browser-helper)
