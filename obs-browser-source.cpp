@@ -154,7 +154,7 @@ void BrowserSource::Destroy()
 
 void BrowserSource::ExecuteOnBrowser(BrowserFunc func, bool async)
 {
-	if (!async) {
+		if (!async) {
 #ifdef ENABLE_BROWSER_QT_LOOP
 		if (QThread::currentThread() == qApp->thread()) {
 			if (!!cefBrowser)
@@ -475,6 +475,18 @@ void BrowserSource::SetActive(bool active)
 	nlohmann::json json;
 	json["active"] = active;
 	DispatchJSEvent("obsSourceActiveChanged", json.dump(), this);
+}
+
+void BrowserSource::SendMessage(const char* message)
+{
+	if (destroying)
+		return;
+
+	blog(LOG_INFO, "BrowserSource::SendMessage: %s", message);
+
+	nlohmann::json json;
+	json["message"] = message;
+	DispatchJSEvent("obsSourceMessage", json.dump(), this);
 }
 
 void BrowserSource::Refresh()
