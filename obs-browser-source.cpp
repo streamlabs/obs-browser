@@ -477,16 +477,16 @@ void BrowserSource::SetActive(bool active)
 	DispatchJSEvent("obsSourceActiveChanged", json.dump(), this);
 }
 
-void BrowserSource::SendMessage(const char* message)
+void BrowserSource::MessageToBrowser(const char* message)
 {
 	if (destroying)
 		return;
 
-	blog(LOG_INFO, "BrowserSource::SendMessage: %s", message);
+	blog(LOG_INFO, "[BrowserMessage] MessageToBrowser: %s", message);
 
 	nlohmann::json json;
 	json["message"] = message;
-	DispatchJSEvent("obsSourceMessage", json.dump(), this);
+	DispatchJSEvent("MessageFromApp", json.dump(), this);
 }
 
 void BrowserSource::Refresh()
