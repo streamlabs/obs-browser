@@ -115,7 +115,7 @@ bool BrowserClient::OnProcessMessageReceived(
 	const std::string &name = message->GetName();
 	CefRefPtr<CefListValue> input_args = message->GetArgumentList();
 	nlohmann::json json;
-	blog(LOG_INFO, "BrowserClient::OnProcessMessageReceived: %s", name.c_str());
+	blog(LOG_INFO, "[BrowserMessage] OnProcessMessageReceived: %s", name.c_str());
 	if (!valid()) {
 		return false;
 	}
@@ -261,23 +261,27 @@ bool BrowserClient::OnProcessMessageReceived(
 #else
 	switch (webpage_control_level) {
 	case ControlLevel::All:
- 
+
 		[[fallthrough]];
 	case ControlLevel::Advanced:
-		 
+
 		[[fallthrough]];
 	case ControlLevel::Basic:
- 
+
 		[[fallthrough]];
 	case ControlLevel::ReadUser:
-		 
+
 		[[fallthrough]];
 	case ControlLevel::ReadObs:
-		 
+
 		[[fallthrough]];
 	case ControlLevel::None:
 		if (name == "getControlLevel") {
 			json = (int)webpage_control_level;
+		} else if (name =="messageToApp") {
+			const std::string message = input_args->GetString(1).ToString();
+			blog(LOG_INFO, "[BrowserMessage] messageToApp called: arguments %d, arg2 %s", input_args->GetSize(), message.c_str());
+			bs->messagesToApp.push_back(message);
 		}
 	}
 	UNUSED_PARAMETER(name);

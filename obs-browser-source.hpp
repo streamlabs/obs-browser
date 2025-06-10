@@ -62,6 +62,7 @@ struct BrowserSource {
 	bool create_browser = false;
 	std::recursive_mutex lockBrowser;
 	CefRefPtr<CefBrowser> cefBrowser;
+	std::vector<std::string> messagesToApp;
 
 	std::string url;
 	std::string css;
@@ -150,7 +151,7 @@ struct BrowserSource {
 	void SendKeyClick(const struct obs_key_event *event, bool key_up);
 	void SetShowing(bool showing);
 	void SetActive(bool active);
-	void SendMessage(const char* message);
+	void MessageToBrowser(const char* message);
 	void Refresh();
 
 #if defined(BROWSER_EXTERNAL_BEGIN_FRAME_ENABLED) && \

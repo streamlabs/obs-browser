@@ -322,6 +322,26 @@ static obs_missing_files_t *browser_source_missingfiles(void *data)
 	return files;
 }
 
+static obs_data_array_t *browser_source_get_messages(void *data)
+{
+	BrowserSource *bs = static_cast<BrowserSource *>(data);
+	obs_data_array_t *messages = nullptr;
+
+	if (bs && !bs->messagesToApp.empty()) {
+		
+		messages = obs_data_array_create();
+		for (const auto &message : bs->messagesToApp) {
+			obs_data_t *msg_data = obs_data_create();
+			obs_data_set_string(msg_data, "message", message.c_str());
+			obs_data_array_push_back(messages, msg_data);
+			obs_data_release(msg_data);
+		}
+		bs->messagesToApp.clear();
+	}
+
+	return messages;
+}
+
 static CefRefPtr<BrowserApp> app;
 
 static void BrowserInit(obs_data_t *settings_obs)
@@ -635,8 +655,9 @@ void RegisterBrowserSource()
 	info.message = [](void *data, obs_data_t *settings) {
 		BrowserSource *bs = static_cast<BrowserSource *>(data);
 		const char *message = obs_data_get_string(settings, "message");
-		bs->SendMessage(message);
+		bs->MessageToBrowser(message);
 	};
+	info.get_messages = browser_source_get_messages;
 	info.deactivate = [](void *data) {
 		static_cast<BrowserSource *>(data)->SetActive(false);
 	};
