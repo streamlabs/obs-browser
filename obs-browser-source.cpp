@@ -486,7 +486,7 @@ void BrowserSource::MessageToBrowser(const char* message)
 
 	nlohmann::json json;
 	json["message"] = message;
-	DispatchJSEvent("MessageFromApp", json.dump(), this);
+	DispatchJSEvent("messageFromApp", json.dump(), this);
 }
 
 void BrowserSource::Refresh()

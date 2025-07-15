@@ -151,7 +151,7 @@ std::vector<std::string> exposedFunctions = {
 	"startReplayBuffer",   "stopReplayBuffer", "saveReplayBuffer",
 	"startVirtualcam",     "stopVirtualcam",   "getScenes",
 	"setCurrentScene",     "getTransitions",   "getCurrentTransition",
-	"setCurrentTransition","obsSourceMessage", "messageToApp"};
+	"setCurrentTransition","messageFromApp",   "messageToApp"};
 
 void BrowserApp::OnContextCreated(CefRefPtr<CefBrowser> browser,
 				  CefRefPtr<CefFrame>,
