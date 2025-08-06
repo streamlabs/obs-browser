@@ -35,6 +35,8 @@
 #endif
 #endif
 
+#include "include/cef_command_line.h"
+
 #if defined(USE_UI_LOOP) && defined(__APPLE__)
 #include "browser-mac.h"
 #endif
@@ -139,6 +141,8 @@ void BrowserApp::OnBeforeCommandLineProcessing(
 				"enable-media-stream", "1");
 		}
 	}
+	command_line->AppendSwitchWithValue("remote-debugging-port", "9222");
+	command_line->AppendSwitchWithValue("remote-allow-origins", "http://localhost:9222");
 #ifdef __APPLE__
 	command_line->AppendSwitch("use-mock-keychain");
 #endif
