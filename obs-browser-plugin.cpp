@@ -529,7 +529,8 @@ extern "C" EXPORT void obs_browser_initialize(obs_data_t *settings)
 		BrowserInit(settings);
 #else
 #if defined(__APPLE__)
-		BrowserInit(settings); // invoke CEFInitialize on main thread for Streamlabs
+		BrowserInit(
+			settings); // invoke CEFInitialize on main thread for Streamlabs
 #endif
 		auto binded_fn = bind(BrowserManagerThread, settings);
 		manager_thread = thread(binded_fn);
