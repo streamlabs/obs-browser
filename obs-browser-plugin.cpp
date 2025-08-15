@@ -506,7 +506,7 @@ static void BrowserShutdown(void)
 
 #ifndef ENABLE_BROWSER_QT_LOOP
 #if defined(__APPLE__)
-static void BrowserManagerThread(obs_data_t *_)
+static void BrowserManagerThread(obs_data_t *)
 {
 	CefRunMessageLoop();
 	BrowserShutdown();
