@@ -24,8 +24,6 @@ target_link_options(obs-browser-helper PRIVATE /IGNORE:4099 /SUBSYSTEM:WINDOWS)
 
 message(STATUS "Buiding browser source plugin helper for Windows")
 
-message(STATUS "Buiding browser source plugin helper for Windows")
-
 set(OBS_EXECUTABLE_DESTINATION "${OBS_PLUGIN_DESTINATION}")
 set_target_properties_obs(
   obs-browser-helper

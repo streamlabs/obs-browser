@@ -327,16 +327,18 @@ static obs_data_array_t *browser_source_get_messages(void *data)
 	BrowserSource *bs = static_cast<BrowserSource *>(data);
 	obs_data_array_t *messages = nullptr;
 
-	if (bs && !bs->messagesToApp.empty()) {
-		
-		messages = obs_data_array_create();
-		for (const auto &message : bs->messagesToApp) {
-			obs_data_t *msg_data = obs_data_create();
-			obs_data_set_string(msg_data, "message", message.c_str());
-			obs_data_array_push_back(messages, msg_data);
-			obs_data_release(msg_data);
+	if (bs) {
+		std::lock_guard<std::mutex> lock(bs->messagesToAppMutex);
+		if (!bs->messagesToApp.empty()) {
+			messages = obs_data_array_create();
+			for (const auto &message : bs->messagesToApp) {
+				obs_data_t *msg_data = obs_data_create();
+				obs_data_set_string(msg_data, "message", message.c_str());
+				obs_data_array_push_back(messages, msg_data);
+				obs_data_release(msg_data);
+			}
+			bs->messagesToApp.clear();
 		}
-		bs->messagesToApp.clear();
 	}
 
 	return messages;
