@@ -1,19 +1,20 @@
+# We currently do not use Qt in obs-studio-node so its' best to leave this off. OBS.app is a QtApplication so this makes sense for them.
+#find_package(Qt6 REQUIRED Widgets)
 
-find_library(COREFOUNDATION CoreFoundation)
-find_library(APPKIT AppKit)
-mark_as_advanced(COREFOUNDATION APPKIT)
-
+# Do not turn on ENABLE_BROWSER_QT_LOOP. Once again, obs-studio-node is not a Qt app. We could make it one kinda easily as long as the exact same
+# binaries we use to build obs-browser is packed up and shipped along like libobs.framework. But for now we dont need the ENABLE_BROWSER_QT_LOOP flag
 target_compile_definitions(obs-browser PRIVATE ENABLE_BROWSER_SHARED_TEXTURE)
 
 if(CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 14.0.3)
   target_compile_options(obs-browser PRIVATE -Wno-error=unqualified-std-cast-call)
 endif()
 
+# Streamlabs removed Qt::Widgets. Our obs-browser does not use Qt framework
 target_link_libraries(obs-browser PRIVATE CEF::Wrapper "$<LINK_LIBRARY:FRAMEWORK,CoreFoundation.framework>"
                                           "$<LINK_LIBRARY:FRAMEWORK,AppKit.framework>")
 
 set(helper_basename browser-helper)
-set(helper_output_name "obs64 Helper")
+set(helper_output_name "obs64 Helper") # See cef_types.h documentation for browser_subprocess_path setting
 set(helper_suffixes "::" " (GPU):_gpu:.gpu" " (Plugin):_plugin:.plugin" " (Renderer):_renderer:.renderer")
 
 foreach(helper IN LISTS helper_suffixes)
@@ -34,7 +35,7 @@ foreach(helper IN LISTS helper_suffixes)
 
   target_sources(
     ${target_name} PRIVATE # cmake-format: sortable
-                           browser-app.cpp browser-app.hpp browser-mac.mm browser-mac.h cef-headers.hpp obs-browser-page/obs-browser-page-main.cpp)
+                           browser-app.cpp browser-app.hpp cef-headers.hpp obs-browser-page/obs-browser-page-main.cpp)
 
   target_compile_definitions(${target_name} PRIVATE ENABLE_BROWSER_SHARED_TEXTURE)
 

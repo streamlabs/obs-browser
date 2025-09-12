@@ -63,6 +63,7 @@ struct BrowserSource {
 	std::recursive_mutex lockBrowser;
 	CefRefPtr<CefBrowser> cefBrowser;
 	std::vector<std::string> messagesToApp;
+	std::mutex messagesToAppMutex;
 
 	std::string url;
 	std::string css;

@@ -327,16 +327,18 @@ static obs_data_array_t *browser_source_get_messages(void *data)
 	BrowserSource *bs = static_cast<BrowserSource *>(data);
 	obs_data_array_t *messages = nullptr;
 
-	if (bs && !bs->messagesToApp.empty()) {
-		
-		messages = obs_data_array_create();
-		for (const auto &message : bs->messagesToApp) {
-			obs_data_t *msg_data = obs_data_create();
-			obs_data_set_string(msg_data, "message", message.c_str());
-			obs_data_array_push_back(messages, msg_data);
-			obs_data_release(msg_data);
+	if (bs) {
+		std::lock_guard<std::mutex> lock(bs->messagesToAppMutex);
+		if (!bs->messagesToApp.empty()) {
+			messages = obs_data_array_create();
+			for (const auto &message : bs->messagesToApp) {
+				obs_data_t *msg_data = obs_data_create();
+				obs_data_set_string(msg_data, "message", message.c_str());
+				obs_data_array_push_back(messages, msg_data);
+				obs_data_release(msg_data);
+			}
+			bs->messagesToApp.clear();
 		}
-		bs->messagesToApp.clear();
 	}
 
 	return messages;
@@ -418,8 +420,21 @@ static void BrowserInit(obs_data_t *settings_obs)
 		std::string binPath = getExecutablePath();
 		binPath = binPath.substr(0,
 					 binPath.size() - strlen("/bin/obs64"));
+		std::string browserSourcePath = binPath;
 		binPath += "/Frameworks/Chromium Embedded Framework.framework";
 		CefString(&settings.framework_dir_path) = binPath;
+
+		// Set the browser-source-path. Streamlabs desktop (if not run within an app)
+		// will not spin up all the helper apps but at least we will not crash.
+		// Streamlabs desktop.app and OBS.app backend will work properly with browser
+		// sources because they can both spin up the helper processes.
+		browserSourcePath +=
+			"/Frameworks/obs64 Helper.app/Contents/MacOS/obs64 Helper";
+		CefString(&settings.browser_subprocess_path) =
+			browserSourcePath;
+		blog(LOG_INFO,
+		     "Set browser_subprocess_path for obs64 (app bundle): [%s]",
+		     browserSourcePath.c_str());
 #endif
 		std::string obs_locale = obs_get_locale();
 		std::string accepted_languages;
