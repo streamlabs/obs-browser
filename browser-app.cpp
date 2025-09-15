@@ -35,6 +35,8 @@
 #endif
 #endif
 
+#include "include/cef_command_line.h"
+
 #if defined(USE_UI_LOOP) && defined(__APPLE__)
 #include "browser-mac.h"
 #endif
@@ -139,6 +141,8 @@ void BrowserApp::OnBeforeCommandLineProcessing(
 				"enable-media-stream", "1");
 		}
 	}
+	command_line->AppendSwitchWithValue("remote-debugging-port", "9222");
+	command_line->AppendSwitchWithValue("remote-allow-origins", "http://localhost:9222");
 #ifdef __APPLE__
 	command_line->AppendSwitch("use-mock-keychain");
 #endif
@@ -151,7 +155,7 @@ std::vector<std::string> exposedFunctions = {
 	"startReplayBuffer",   "stopReplayBuffer", "saveReplayBuffer",
 	"startVirtualcam",     "stopVirtualcam",   "getScenes",
 	"setCurrentScene",     "getTransitions",   "getCurrentTransition",
-	"setCurrentTransition"};
+	"setCurrentTransition","messageFromApp",   "messageToApp"};
 
 void BrowserApp::OnContextCreated(CefRefPtr<CefBrowser> browser,
 				  CefRefPtr<CefFrame>,
@@ -411,8 +415,10 @@ bool BrowserApp::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
 
 			CefRefPtr<CefV8Value> dispatchEvent =
 				globalObj->GetValue("dispatchEvent");
-			dispatchEvent->ExecuteFunction(nullptr, arguments);
 
+			if (dispatchEvent && dispatchEvent->IsFunction()) {
+				dispatchEvent->ExecuteFunction(nullptr, arguments);
+			}
 			context->Exit();
 		}
 
