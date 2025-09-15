@@ -529,9 +529,15 @@ static void BrowserShutdown(void)
 #ifndef ENABLE_BROWSER_QT_LOOP
 static void BrowserManagerThread(obs_data_t *settings)
 {
-	BrowserInit(settings);
-	CefRunMessageLoop();
-	BrowserShutdown();
+#ifdef __APPLE__
+	ExecuteSyncTask([&settings]() {
+#endif
+		BrowserInit(settings);
+		CefRunMessageLoop();
+		BrowserShutdown();
+#ifdef __APPLE__
+	});
+#endif
 }
 #endif
 
