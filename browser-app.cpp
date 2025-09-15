@@ -415,9 +415,8 @@ bool BrowserApp::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
 
 			CefRefPtr<CefV8Value> dispatchEvent =
 				globalObj->GetValue("dispatchEvent");
-			dispatchEvent->ExecuteFunction(nullptr, arguments);
-			if (!dispatchEvent || !dispatchEvent->IsFunction()) {
-			} else {
+
+			If (dispatchEvent && dispatchEvent->IsFunction()) {
 				dispatchEvent->ExecuteFunction(nullptr, arguments);
 			}
 			context->Exit();
