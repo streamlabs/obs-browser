@@ -26,6 +26,7 @@
 
 std::mutex browserTaskMutex;
 std::deque<Task> browserTasks;
+static NSTimer *cefTimer = nil;
 
 bool ExecuteNextBrowserTask()
 {
@@ -73,8 +74,6 @@ void DoCefMessageLoop(int)
 		CefDoMessageLoopWork();
 	});
 }
-
-static NSTimer *cefTimer = nil;
 
 void DoCefMessageLoopTimer(float ms)
 {
