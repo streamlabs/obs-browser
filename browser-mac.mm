@@ -26,6 +26,7 @@
 
 std::mutex browserTaskMutex;
 std::deque<Task> browserTasks;
+static NSTimer *cefTimer = nil;
 
 bool ExecuteNextBrowserTask()
 {
@@ -45,16 +46,26 @@ bool ExecuteNextBrowserTask()
 
 void ExecuteTask(MessageTask task)
 {
-	dispatch_async(dispatch_get_main_queue(), ^{
+	// Protect against exception if already on main thread
+	if ([NSThread isMainThread]) {
 		task();
-	});
+	} else {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			task();
+		});
+	}
 }
 
 void ExecuteSyncTask(MessageTask task)
 {
-	dispatch_sync(dispatch_get_main_queue(), ^{
+	// Protect against exception if already on main thread
+	if ([NSThread isMainThread]) {
 		task();
-	});
+	} else {
+		dispatch_sync(dispatch_get_main_queue(), ^{
+			task();
+		});
+	}
 }
 
 void DoCefMessageLoop(int)
@@ -62,6 +73,22 @@ void DoCefMessageLoop(int)
 	dispatch_async(dispatch_get_main_queue(), ^{
 		CefDoMessageLoopWork();
 	});
+}
+
+void DoCefMessageLoopTimer(float ms)
+{
+	cefTimer = [NSTimer
+		scheduledTimerWithTimeInterval:ms
+				       repeats:YES
+					 block:^(NSTimer *) {
+						 CefDoMessageLoopWork();
+					 }];
+}
+
+void StopCefMessageLoopTimer()
+{
+	[cefTimer invalidate];
+	cefTimer = nil;
 }
 
 void Process()

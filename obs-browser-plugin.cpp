@@ -333,7 +333,8 @@ static obs_data_array_t *browser_source_get_messages(void *data)
 			messages = obs_data_array_create();
 			for (const auto &message : bs->messagesToApp) {
 				obs_data_t *msg_data = obs_data_create();
-				obs_data_set_string(msg_data, "message", message.c_str());
+				obs_data_set_string(msg_data, "message",
+						    message.c_str());
 				obs_data_array_push_back(messages, msg_data);
 				obs_data_release(msg_data);
 			}
@@ -529,15 +530,9 @@ static void BrowserShutdown(void)
 #ifndef ENABLE_BROWSER_QT_LOOP
 static void BrowserManagerThread(obs_data_t *settings)
 {
-#ifdef __APPLE__
-	ExecuteSyncTask([&settings]() {
-#endif
-		BrowserInit(settings);
-		CefRunMessageLoop();
-		BrowserShutdown();
-#ifdef __APPLE__
-	});
-#endif
+	BrowserInit(settings);
+	CefRunMessageLoop();
+	BrowserShutdown();
 }
 #endif
 
@@ -546,6 +541,12 @@ extern "C" EXPORT void obs_browser_initialize(obs_data_t *settings)
 	if (!os_atomic_set_bool(&manager_initialized, true)) {
 #ifdef ENABLE_BROWSER_QT_LOOP
 		BrowserInit(settings);
+#elif __APPLE__
+
+		ExecuteTask([&settings]() {
+			BrowserInit(settings);
+			DoCefMessageLoopTimer(0.01f); // Do not block the main queue so we avoid calling CefRunMessageLoop()
+		});
 #else
 		auto binded_fn = bind(BrowserManagerThread, settings);
 		manager_thread = thread(binded_fn);
@@ -956,6 +957,11 @@ void obs_module_unload(void)
 {
 #ifdef USE_UI_LOOP
 	BrowserShutdown();
+#elif __APPLE__
+	ExecuteSyncTask([]() {
+		StopCefMessageLoopTimer();
+		BrowserShutdown();
+	});
 #else
 	if (manager_thread.joinable()) {
 		while (!QueueCEFTask([]() { CefQuitMessageLoop(); }))
