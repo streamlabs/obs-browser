@@ -955,7 +955,7 @@ void obs_module_post_load(void)
 
 void obs_module_unload(void)
 {
-#ifdef USE_UI_LOOP
+#if defined(USE_UI_LOOP) || defined(ENABLE_BROWSER_QT_LOOP)
 	BrowserShutdown();
 #elif __APPLE__
 	ExecuteSyncTask([]() {
