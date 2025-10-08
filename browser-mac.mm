@@ -75,10 +75,10 @@ void DoCefMessageLoop(int)
 	});
 }
 
-void DoCefMessageLoopTimer(float ms)
+void DoCefMessageLoopTimer(float interval)
 {
 	cefTimer = [NSTimer
-		scheduledTimerWithTimeInterval:ms
+		scheduledTimerWithTimeInterval:interval
 				       repeats:YES
 					 block:^(NSTimer *) {
 						 CefDoMessageLoopWork();
