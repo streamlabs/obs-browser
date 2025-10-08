@@ -545,7 +545,8 @@ extern "C" EXPORT void obs_browser_initialize(obs_data_t *settings)
 
 		ExecuteTask([&settings]() {
 			BrowserInit(settings);
-			DoCefMessageLoopTimer(0.01f); // Do not block the main queue so we avoid calling CefRunMessageLoop()
+			const float interval = 0.01f; // 10ms, for ex. 16.6ms = 60fps. We want a bit more than 60fps to keep CEF happy?
+			DoCefMessageLoopTimer(interval); // Do not block the main queue so we avoid calling CefRunMessageLoop()
 		});
 #else
 		auto binded_fn = bind(BrowserManagerThread, settings);
