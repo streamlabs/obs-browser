@@ -94,8 +94,7 @@ struct BrowserSource {
 	bool reroute_audio = true;
 	std::atomic<bool> destroying = false;
 	ControlLevel webpage_control_level = DEFAULT_CONTROL_LEVEL;
-#if defined(BROWSER_EXTERNAL_BEGIN_FRAME_ENABLED) && \
-	defined(ENABLE_BROWSER_SHARED_TEXTURE)
+#if defined(BROWSER_EXTERNAL_BEGIN_FRAME_ENABLED) && defined(ENABLE_BROWSER_SHARED_TEXTURE)
 	bool reset_frame = false;
 #endif
 	bool is_showing = false;
@@ -136,18 +135,14 @@ struct BrowserSource {
 #if CHROME_VERSION_BUILD < 4103
 	void ClearAudioStreams();
 	void EnumAudioStreams(obs_source_enum_proc_t cb, void *param);
-	bool AudioMix(uint64_t *ts_out, struct audio_output_data *audio_output,
-		      size_t channels, size_t sample_rate);
+	bool AudioMix(uint64_t *ts_out, struct audio_output_data *audio_output, size_t channels, size_t sample_rate);
 	std::mutex audio_sources_mutex;
 	std::vector<obs_source_t *> audio_sources;
 	std::unordered_map<int, AudioStream> audio_streams;
 #endif
-	void SendMouseClick(const struct obs_mouse_event *event, int32_t type,
-			    bool mouse_up, uint32_t click_count);
-	void SendMouseMove(const struct obs_mouse_event *event,
-			   bool mouse_leave);
-	void SendMouseWheel(const struct obs_mouse_event *event, int x_delta,
-			    int y_delta);
+	void SendMouseClick(const struct obs_mouse_event *event, int32_t type, bool mouse_up, uint32_t click_count);
+	void SendMouseMove(const struct obs_mouse_event *event, bool mouse_leave);
+	void SendMouseWheel(const struct obs_mouse_event *event, int x_delta, int y_delta);
 	void SendFocus(bool focus);
 	void SendKeyClick(const struct obs_key_event *event, bool key_up);
 	void SetShowing(bool showing);
@@ -155,8 +150,7 @@ struct BrowserSource {
 	void MessageToBrowser(const char* message);
 	void Refresh();
 
-#if defined(BROWSER_EXTERNAL_BEGIN_FRAME_ENABLED) && \
-	defined(ENABLE_BROWSER_SHARED_TEXTURE)
+#if defined(BROWSER_EXTERNAL_BEGIN_FRAME_ENABLED) && defined(ENABLE_BROWSER_SHARED_TEXTURE)
 	inline void SignalBeginFrame();
 #endif
 
