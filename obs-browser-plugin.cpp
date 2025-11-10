@@ -27,7 +27,8 @@
 #include <thread>
 #include <mutex>
 #include <nlohmann/json.hpp>
-#include <obs-websocket-api.h>
+// Disabled OBS websocket because it is unused and has a QT dependency.
+//#include <obs-websocket-api.h>
 
 #include "obs-browser-source.hpp"
 #include "browser-scheme.hpp"
@@ -938,6 +939,8 @@ bool obs_module_load(void)
 
 void obs_module_post_load(void)
 {
+	// Disabled OBS websocket because it is unused and has a QT dependency.
+	/*
 	auto vendor = obs_websocket_register_vendor("obs-browser");
 	if (!vendor)
 		return;
@@ -955,6 +958,7 @@ void obs_module_post_load(void)
 
 	if (!obs_websocket_vendor_register_request(vendor, "emit_event", emit_event_request_cb, nullptr))
 		blog(LOG_WARNING, "[obs-browser]: Failed to register obs-websocket request emit_event");
+	*/
 }
 
 void obs_module_unload(void)
