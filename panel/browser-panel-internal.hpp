@@ -50,7 +50,7 @@ public:
 	virtual void reloadPage() override;
 	virtual bool zoomPage(int direction) override;
 
-	void CloseSafely();
+	void finishCloseBrowser();
 	void Resize();
 
 #ifdef __linux__

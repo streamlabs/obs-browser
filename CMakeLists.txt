@@ -31,12 +31,12 @@ target_sources(
           cef-headers.hpp
           deps/base64/base64.cpp
           deps/base64/base64.hpp
+          deps/ip-string.hpp
           deps/signal-restore.cpp
           deps/signal-restore.hpp
           deps/wide-string.cpp
           deps/wide-string.hpp
           obs-browser-plugin.cpp
-          obs-browser-source-audio.cpp
           obs-browser-source.cpp
           obs-browser-source.hpp)
 
