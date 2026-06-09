@@ -105,6 +105,10 @@ void BrowserApp::OnBeforeCommandLineProcessing(const CefString &, CefRefPtr<CefC
 		}
 	}
 
+	/* Survive transient GPU-process loss (e.g. driver TDR) by relaunching it
+	 * instead of escalating to Chromium's fatal "GPU process isn't usable" abort. */
+	command_line->AppendSwitch("disable-gpu-process-crash-limit");
+
 	if (command_line->HasSwitch("disable-features")) {
 		// Don't override existing, as this can break OSR
 		std::string disableFeatures = command_line->GetSwitchValue("disable-features");
