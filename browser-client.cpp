@@ -458,6 +458,13 @@ void BrowserClient::OnAcceleratedPaint(CefRefPtr<CefBrowser>, PaintElementType t
 
 	obs_enter_graphics();
 
+	/* Re-check under the lock: Destroy() sets `destroying` and frees the textures
+	 * (under this same lock) on another thread after the early valid() check. */
+	if (!valid()) {
+		obs_leave_graphics();
+		return;
+	}
+
 	if (bs->texture) {
 #ifdef _WIN32
 		//gs_texture_release_sync(bs->texture, 0);
