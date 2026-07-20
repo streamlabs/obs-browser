@@ -260,11 +260,13 @@ static obs_properties_t *browser_source_get_properties(void *data)
 	obs_property_list_add_int(controlLevel, obs_module_text("WebpageControlLevel.Level.All"),
 				  (int)ControlLevel::All);
 
-	obs_properties_add_button(props, "refreshnocache", obs_module_text("RefreshNoCache"),
-				  [](obs_properties_t *, obs_property_t *, void *data) {
-					  static_cast<BrowserSource *>(data)->Refresh();
-					  return false;
-				  });
+	obs_properties_add_button2(
+		props, "refreshnocache", obs_module_text("RefreshNoCache"),
+		[](obs_properties_t *, obs_property_t *, void *data) {
+			static_cast<BrowserSource *>(data)->Refresh();
+			return false;
+		},
+		bs);
 	return props;
 }
 
@@ -381,11 +383,7 @@ static void BrowserInit(obs_data_t *settings_obs)
 			 << std::to_string(obs_pat);
 		prod_ver << " SLD";
 
-#if CHROME_VERSION_BUILD >= 4472
-		CefString(&settings.user_agent_product) = prod_ver.str();
-#else
-	CefString(&settings.product_version) = prod_ver.str();
-#endif
+	CefString(&settings.user_agent_product) = prod_ver.str();
 
 #ifdef USE_UI_LOOP
 		settings.external_message_pump = true;
@@ -473,17 +471,8 @@ static void BrowserInit(obs_data_t *settings_obs)
 	BackupSignalHandlers();
 	bool success = CefInitialize(args, settings, app, nullptr);
 	RestoreSignalHandlers();
-#elif (CHROME_VERSION_BUILD > 3770)
-	bool success = CefInitialize(args, settings, app, nullptr);
 #else
-	/* Massive (but amazing) hack to prevent chromium from modifying our
-	 * process tokens and permissions, which caused us problems with winrt,
-	 * used with window capture.  Note, the structure internally is just
-	 * two pointers normally.  If it causes problems with future versions
-	 * we'll just switch back to the static library but I doubt we'll need
-	 * to. */
-	uintptr_t zeroed_memory_lol[32] = {};
-	bool success = CefInitialize(args, settings, app, zeroed_memory_lol);
+	bool success = CefInitialize(args, settings, app, nullptr);
 #endif
 
 	if (!success) {
@@ -495,13 +484,10 @@ static void BrowserInit(obs_data_t *settings_obs)
 		return;
 	}
 
-#if !ENABLE_LOCAL_FILE_URL_SCHEME
-		/* Register http://absolute/ scheme handler for older
-		* CEF builds which do not support file:// URLs */
-		CefRegisterSchemeHandlerFactory(
-			"http", "absolute", new BrowserSchemeHandlerFactory());
-#endif
-		os_event_signal(cef_started_event);
+	// Register custom scheme handler for local browser sources
+	CefRegisterSchemeHandlerFactory("http", "absolute", new BrowserSchemeHandlerFactory());
+
+	os_event_signal(cef_started_event);
 #if defined(__APPLE__) && defined(USE_UI_LOOP)
 	});
 #endif
@@ -513,9 +499,8 @@ extern BrowserCppInt *message;
 
 static void BrowserShutdown(void)
 {
-#if !ENABLE_LOCAL_FILE_URL_SCHEME
 	CefClearSchemeHandlerFactories();
-#endif
+
 #ifdef ENABLE_BROWSER_QT_LOOP
 #ifdef WIN32
 	while (messageObject.ExecuteNextBrowserTask())
@@ -608,10 +593,10 @@ void RegisterBrowserSource()
 		bs->Update(settings);
 	};
 	info.get_width = [](void *data) {
-		return (uint32_t) static_cast<BrowserSource *>(data)->width;
+		return (uint32_t)static_cast<BrowserSource *>(data)->width;
 	};
 	info.get_height = [](void *data) {
-		return (uint32_t) static_cast<BrowserSource *>(data)->height;
+		return (uint32_t)static_cast<BrowserSource *>(data)->height;
 	};
 	info.video_tick = [](void *data, float) {
 		static_cast<BrowserSource *>(data)->Tick();
@@ -619,15 +604,6 @@ void RegisterBrowserSource()
 	info.video_render = [](void *data, gs_effect_t *) {
 		static_cast<BrowserSource *>(data)->Render();
 	};
-#if CHROME_VERSION_BUILD < 4103
-	info.audio_mix = [](void *data, uint64_t *ts_out, struct audio_output_data *audio_output, size_t channels,
-			    size_t sample_rate) {
-		return static_cast<BrowserSource *>(data)->AudioMix(ts_out, audio_output, channels, sample_rate);
-	};
-	info.enum_active_sources = [](void *data, obs_source_enum_proc_t cb, void *param) {
-		static_cast<BrowserSource *>(data)->EnumAudioStreams(cb, param);
-	};
-#endif
 	info.mouse_click = [](void *data, const struct obs_mouse_event *event, int32_t type, bool mouse_up,
 			      uint32_t click_count) {
 		static_cast<BrowserSource *>(data)->SendMouseClick(event, type, mouse_up, click_count);
@@ -926,12 +902,6 @@ bool obs_module_load(void)
 	if (hwaccel) {
 		check_hwaccel_support();
 	}
-#endif
-
-#if defined(__APPLE__) && CHROME_VERSION_BUILD < 4183
-	// Make sure CEF malloc hijacking happens early in the process
-	if (isHighThanBigSur())
-		obs_browser_initialize(nullptr);
 #endif
 
 	return true;

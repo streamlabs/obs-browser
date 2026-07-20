@@ -1,6 +1,5 @@
 /******************************************************************************
- Copyright (C) 2014 by John R. Bradley <jrb@turrettech.com>
- Copyright (C) 2023 by Lain Bailey <lain@obsproject.com>
+ Copyright (C) 2026 by Warchamp7 <warchamp7@obsproject.com>
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -16,16 +15,21 @@
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  ******************************************************************************/
 
-#pragma once
+#include "ip-string.hpp"
 
-#include "cef-headers.hpp"
-#include <string>
-#include <fstream>
+#include <arpa/inet.h>
+#include <stdio.h>
 
-class BrowserSchemeHandlerFactory : public CefSchemeHandlerFactory {
-public:
-	virtual CefRefPtr<CefResourceHandler> Create(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>,
-						     const CefString &, CefRefPtr<CefRequest> request) override;
+bool checkForIpv4String(const std::string &path)
+{
+	sockaddr_in sa4;
 
-	IMPLEMENT_REFCOUNTING(BrowserSchemeHandlerFactory);
-};
+	return inet_pton(AF_INET, path.c_str(), &sa4.sin_addr) == 1;
+}
+
+bool checkForIpv6String(const std::string &path)
+{
+	sockaddr_in6 sa6;
+
+	return inet_pton(AF_INET6, path.c_str(), &sa6.sin6_addr) == 1;
+}

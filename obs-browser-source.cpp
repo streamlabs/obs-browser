@@ -54,7 +54,6 @@ static void SendBrowserVisibility(CefRefPtr<CefBrowser> browser, bool isVisible)
 	if (!browser)
 		return;
 
-#if ENABLE_WASHIDDEN
 	if (isVisible) {
 		browser->GetHost()->WasResized();
 		browser->GetHost()->WasHidden(false);
@@ -62,7 +61,6 @@ static void SendBrowserVisibility(CefRefPtr<CefBrowser> browser, bool isVisible)
 	} else {
 		browser->GetHost()->WasHidden(true);
 	}
-#endif
 
 	CefRefPtr<CefProcessMessage> msg = CefProcessMessage::Create("Visibility");
 	CefRefPtr<CefListValue> args = msg->GetArgumentList();
@@ -203,13 +201,8 @@ bool BrowserSource::CreateBrowser()
 			new BrowserClient(this, hwaccel && tex_sharing_avail, reroute_audio, webpage_control_level);
 
 		CefWindowInfo windowInfo;
-#if CHROME_VERSION_BUILD < 4430
-		windowInfo.width = width;
-		windowInfo.height = height;
-#else
 		windowInfo.bounds.width = width;
 		windowInfo.bounds.height = height;
-#endif
 		windowInfo.windowless_rendering_enabled = true;
 
 #ifdef ENABLE_BROWSER_SHARED_TEXTURE
@@ -240,13 +233,6 @@ bool BrowserSource::CreateBrowser()
 		cefBrowserSettings.default_font_size = 16;
 		cefBrowserSettings.default_fixed_font_size = 16;
 
-#if ENABLE_LOCAL_FILE_URL_SCHEME && CHROME_VERSION_BUILD < 4430
-		if (is_local) {
-			/* Disable web security for file:// URLs to allow
-			 * local content access to remote APIs */
-			cefBrowserSettings.web_security = STATE_DISABLED;
-		}
-#endif
 		auto browser = CefBrowserHost::CreateBrowserSync(windowInfo, browserClient, url, cefBrowserSettings,
 								 CefRefPtr<CefDictionaryValue>(), nullptr);
 
@@ -272,16 +258,7 @@ void BrowserSource::DestroyBrowser()
 	ExecuteOnBrowser(ActuallyCloseBrowser, true);
 	SetBrowser(nullptr);
 }
-#if CHROME_VERSION_BUILD < 4103
-void BrowserSource::ClearAudioStreams()
-{
-	QueueCEFTask([this]() {
-		audio_streams.clear();
-		std::lock_guard<std::mutex> lock(audio_sources_mutex);
-		audio_sources.clear();
-	});
-}
-#endif
+
 void BrowserSource::SendMouseClick(const struct obs_mouse_event *event, int32_t type, bool mouse_up,
 				   uint32_t click_count)
 {
@@ -337,15 +314,7 @@ void BrowserSource::SendMouseWheel(const struct obs_mouse_event *event, int x_de
 
 void BrowserSource::SendFocus(bool focus)
 {
-	ExecuteOnBrowser(
-		[=](CefRefPtr<CefBrowser> cefBrowser) {
-#if CHROME_VERSION_BUILD < 4430
-			cefBrowser->GetHost()->SendFocusEvent(focus);
-#else
-			cefBrowser->GetHost()->SetFocus(focus);
-#endif
-		},
-		true);
+	ExecuteOnBrowser([=](CefRefPtr<CefBrowser> cefBrowser) { cefBrowser->GetHost()->SetFocus(focus); }, true);
 }
 
 void BrowserSource::SendKeyClick(const struct obs_key_event *event, bool key_up)
@@ -553,28 +522,9 @@ void BrowserSource::Update(obs_data_t *settings)
 			while (n_url.find("%2F") != std::string::npos)
 				n_url.replace(n_url.find("%2F"), 3, "/");
 
-#if !ENABLE_LOCAL_FILE_URL_SCHEME
-			/* http://absolute/ based mapping for older CEF */
+			// Local files are routed through our custom scheme handler to give them acess to other local files
 			n_url = "http://absolute/" + n_url;
-#elif defined(_WIN32)
-			/* Widows-style local file URL:
-			 * file:///C:/file/path.webm */
-			n_url = "file:///" + n_url;
-#else
-			/* UNIX-style local file URL:
-			 * file:///home/user/file.webm */
-			n_url = "file://" + n_url;
-#endif
 		}
-
-#if ENABLE_LOCAL_FILE_URL_SCHEME
-		if (astrcmpi_n(n_url.c_str(), "http://absolute/", 16) == 0) {
-			/* Replace http://absolute/ URLs with file://
-			 * URLs if file:// URLs are enabled */
-			n_url = "file:///" + n_url.substr(16);
-			n_is_local = true;
-		}
-#endif
 
 		if (n_is_local == is_local && n_fps_custom == fps_custom && n_fps == fps &&
 		    n_shutdown == shutdown_on_invisible && n_restart == restart && n_css == css && n_url == url &&
@@ -614,9 +564,7 @@ void BrowserSource::Update(obs_data_t *settings)
 
 	DestroyBrowser();
 	DestroyTextures();
-#if CHROME_VERSION_BUILD < 4103
-	ClearAudioStreams();
-#endif
+
 	if (!shutdown_on_invisible || obs_source_showing(source))
 		create_browser = true;
 
@@ -658,7 +606,14 @@ void BrowserSource::Render()
 
 	if (texture) {
 #ifdef __APPLE__
-		gs_effect_t *effect = obs_get_base_effect((hwaccel) ? OBS_EFFECT_DEFAULT_RECT : OBS_EFFECT_DEFAULT);
+		int type = gs_get_device_type();
+		gs_effect_t *effect;
+
+		if (type == GS_DEVICE_OPENGL) {
+			effect = obs_get_base_effect((hwaccel) ? OBS_EFFECT_DEFAULT_RECT : OBS_EFFECT_DEFAULT);
+		} else {
+			effect = obs_get_base_effect(OBS_EFFECT_DEFAULT);
+		}
 #else
 		gs_effect_t *effect = obs_get_base_effect(OBS_EFFECT_DEFAULT);
 #endif

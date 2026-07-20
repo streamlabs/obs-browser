@@ -17,10 +17,10 @@
  ******************************************************************************/
 
 #include "browser-scheme.hpp"
+#include "ip-string.hpp"
 #include "wide-string.hpp"
 #include <include/wrapper/cef_stream_resource_handler.h>
 
-#if !ENABLE_LOCAL_FILE_URL_SCHEME
 CefRefPtr<CefResourceHandler> BrowserSchemeHandlerFactory::Create(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>,
 								  const CefString &, CefRefPtr<CefRequest> request)
 {
@@ -42,19 +42,30 @@ CefRefPtr<CefResourceHandler> BrowserSchemeHandlerFactory::Create(CefRefPtr<CefB
 	if (fileExtension.compare("woff2") == 0)
 		fileExtension = "woff";
 
-#ifdef _WIN32
-	CefRefPtr<CefStreamReader> stream = CefStreamReader::CreateForFile(path.substr(1));
-#else
-	CefRefPtr<CefStreamReader> stream = CefStreamReader::CreateForFile(path);
-#endif
+	std::string filePath = path.substr(1);
 
-	if (stream) {
-		CefString mimeType = CefGetMimeType(fileExtension);
-		if (mimeType.empty())
-			mimeType = "application/octet-stream";
-		return new CefStreamResourceHandler(mimeType, stream);
-	} else {
+	std::string checkString = path.substr(path.find_first_not_of("/"));
+	checkString = checkString.substr(0, checkString.find_first_of("/"));
+
+	// An IP address should never be a valid path for CreateForFile normally, but in some cases an OS
+	// can resolve one as such. As an extra safeguard, we prevent any IP addresses in the path.
+	if (checkForIpv4String(checkString)) {
 		return nullptr;
 	}
+
+	if (checkForIpv6String(checkString)) {
+		return nullptr;
+	}
+
+	CefRefPtr<CefStreamReader> stream = CefStreamReader::CreateForFile(filePath);
+	if (!stream) {
+		return nullptr;
+	}
+
+	CefString mimeType = CefGetMimeType(fileExtension);
+	if (mimeType.empty()) {
+		mimeType = "application/octet-stream";
+	}
+
+	return new CefStreamResourceHandler(mimeType, stream);
 }
-#endif

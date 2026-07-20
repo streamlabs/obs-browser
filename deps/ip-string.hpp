@@ -1,6 +1,5 @@
 /******************************************************************************
- Copyright (C) 2014 by John R. Bradley <jrb@turrettech.com>
- Copyright (C) 2023 by Lain Bailey <lain@obsproject.com>
+ Copyright (C) 2026 by Warchamp7 <warchamp7@obsproject.com>
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -18,14 +17,7 @@
 
 #pragma once
 
-#include "cef-headers.hpp"
 #include <string>
-#include <fstream>
 
-class BrowserSchemeHandlerFactory : public CefSchemeHandlerFactory {
-public:
-	virtual CefRefPtr<CefResourceHandler> Create(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>,
-						     const CefString &, CefRefPtr<CefRequest> request) override;
-
-	IMPLEMENT_REFCOUNTING(BrowserSchemeHandlerFactory);
-};
+extern bool checkForIpv4String(const std::string &path);
+extern bool checkForIpv6String(const std::string &path);
