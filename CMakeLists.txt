@@ -9,6 +9,8 @@ if(NOT ENABLE_BROWSER)
   return()
 endif()
 
+include(CTest)
+
 find_package(CEF 95 REQUIRED)
 find_package(nlohmann_json 3.11 REQUIRED)
 
