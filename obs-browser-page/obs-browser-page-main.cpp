@@ -18,20 +18,16 @@
 
 #include "cef-headers.hpp"
 #include "browser-app.hpp"
+#include "obs-browser-subprocess-win.hpp"
 
 #ifdef _WIN32
 #include <windows.h>
-#include <string>
-#include <thread>
 
 // GPU hint exports for AMD/NVIDIA laptops
 #ifdef _MSC_VER
 extern "C" __declspec(dllexport) DWORD NvOptimusEnablement = 1;
 extern "C" __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 #endif
-
-static HANDLE shutdown_event = nullptr;
-static bool thread_initialized = false;
 
 DECLARE_HANDLE(OBS_DPI_AWARENESS_CONTEXT);
 #define OBS_DPI_AWARENESS_CONTEXT_UNAWARE ((OBS_DPI_AWARENESS_CONTEXT)-1)
@@ -51,55 +47,15 @@ static bool SetHighDPIv2Scaling()
 	return !!func(OBS_DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 }
 
-static void shutdown_check_thread(DWORD parent_pid, DWORD main_thread_id)
-{
-	HANDLE parent = OpenProcess(SYNCHRONIZE, false, parent_pid);
-	if (!parent) {
-		return;
-	}
-
-	HANDLE handles[2] = {parent, shutdown_event};
-
-	DWORD ret = WaitForMultipleObjects(2, handles, false, INFINITE);
-	if (ret == WAIT_OBJECT_0) {
-		PostThreadMessage(main_thread_id, WM_QUIT, 0, 0);
-		ret = WaitForSingleObject(shutdown_event, 5000);
-		if (ret != WAIT_OBJECT_0) {
-			TerminateProcess(GetCurrentProcess(), (UINT)-1);
-		}
-	}
-
-	CloseHandle(parent);
-}
-
 int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-	PROCESS_POWER_THROTTLING_STATE PowerThrottling;
-	PowerThrottling.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
-	PowerThrottling.ControlMask = PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION;
-	PowerThrottling.StateMask = 0;
-
-	SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, &PowerThrottling, sizeof(PowerThrottling));
-
-	std::thread shutdown_check;
-
-	CefMainArgs mainArgs(nullptr);
 #if CHROME_VERSION_BUILD < 5615
 	if (!SetHighDPIv2Scaling())
 		CefEnableHighDPISupport();
 #endif
 
-	CefRefPtr<CefCommandLine> command_line = CefCommandLine::CreateCommandLine();
-	command_line->InitFromString(::GetCommandLineW());
-
-	std::string parent_pid_str = command_line->GetSwitchValue("parent_pid");
-	std::string current_pid = std::to_string(GetCurrentProcessId());
-	if (!parent_pid_str.empty()) {
-		shutdown_event = CreateEvent(nullptr, true, false, nullptr);
-		DWORD parent_pid = (DWORD)std::stoi(parent_pid_str);
-		shutdown_check = std::thread(shutdown_check_thread, parent_pid, GetCurrentThreadId());
-		thread_initialized = true;
-	}
+	return ExecuteBrowserSubprocess(nullptr);
+}
 
 #else
 #if defined(NO_STACK_PROTECTOR)
@@ -113,22 +69,9 @@ int main(int argc, char *argv[])
 		return 1;
 #endif
 	CefMainArgs mainArgs(argc, argv);
-#endif
 	CefRefPtr<BrowserApp> mainApp(new BrowserApp());
 
 	int ret = CefExecuteProcess(mainArgs, mainApp.get(), NULL);
-
-#ifdef _WIN32
-	/* chromium browser subprocesses actually have TerminateProcess called
-	 * on them for whatever reason, so it's unlikely this code will ever
-	 * get called, but better to be safe than sorry */
-	if (thread_initialized) {
-		SetEvent(shutdown_event);
-		shutdown_check.join();
-	}
-	if (shutdown_event) {
-		CloseHandle(shutdown_event);
-	}
-#endif
 	return ret;
 }
+#endif
