@@ -5,7 +5,7 @@ on:
   pull_request:
     paths-ignore:
       - '**.md'
-    branches: [master]
+    branches: [master, streamlabs]
     types: [ opened, synchronize, reopened ]
 permissions:
   contents: read

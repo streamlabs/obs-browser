@@ -50,6 +50,8 @@ set_target_properties_obs(
 add_dependencies(obs-browser obs-browser-helper)
 
 if(BUILD_TESTING)
+  include(CTest)
+
   add_executable(obs-browser-sandbox-selection-test)
   target_sources(
     obs-browser-sandbox-selection-test

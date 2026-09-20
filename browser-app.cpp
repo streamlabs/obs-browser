@@ -80,16 +80,14 @@ void BrowserApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_li
 	std::lock_guard<std::mutex> guard(flag_mutex);
 	if (this->media_flag != -1) {
 		if (this->media_flag) {
-			command_line->AppendSwitchWithValue(
-				"enable-media-stream", "1");
+			command_line->AppendSwitchWithValue("enable-media-stream", "1");
 		}
 		this->media_flag = -1;
 	} else if (this->media_flags.size()) {
 		bool flag = media_flags.front();
 		media_flags.pop();
 		if (flag) {
-			command_line->AppendSwitchWithValue(
-				"enable-media-stream", "1");
+			command_line->AppendSwitchWithValue("enable-media-stream", "1");
 		}
 	}
 }
@@ -131,16 +129,14 @@ void BrowserApp::OnBeforeCommandLineProcessing(const CefString &, CefRefPtr<CefC
 	std::lock_guard<std::mutex> guard(flag_mutex);
 	if (this->media_flag != -1) {
 		if (this->media_flag) {
-			command_line->AppendSwitchWithValue(
-				"enable-media-stream", "1");
+			command_line->AppendSwitchWithValue("enable-media-stream", "1");
 		}
 		this->media_flag = -1;
 	} else if (this->media_flags.size()) {
 		bool flag = media_flags.front();
 		media_flags.pop();
 		if (flag) {
-			command_line->AppendSwitchWithValue(
-				"enable-media-stream", "1");
+			command_line->AppendSwitchWithValue("enable-media-stream", "1");
 		}
 	}
 	command_line->AppendSwitchWithValue("remote-debugging-port", "9222");
@@ -152,13 +148,13 @@ void BrowserApp::OnBeforeCommandLineProcessing(const CefString &, CefRefPtr<CefC
 #endif
 }
 
-std::vector<std::string> exposedFunctions = {"getControlLevel",     "getCurrentScene",  "getStatus",
-					     "startRecording",      "stopRecording",    "startStreaming",
-					     "stopStreaming",       "pauseRecording",   "unpauseRecording",
-					     "startReplayBuffer",   "stopReplayBuffer", "saveReplayBuffer",
-					     "startVirtualcam",     "stopVirtualcam",   "getScenes",
-					     "setCurrentScene",     "getTransitions",   "getCurrentTransition",
-					     "setCurrentTransition","messageFromApp",   "messageToApp"};
+std::vector<std::string> exposedFunctions = {"getControlLevel",      "getCurrentScene",  "getStatus",
+					     "startRecording",       "stopRecording",    "startStreaming",
+					     "stopStreaming",        "pauseRecording",   "unpauseRecording",
+					     "startReplayBuffer",    "stopReplayBuffer", "saveReplayBuffer",
+					     "startVirtualcam",      "stopVirtualcam",   "getScenes",
+					     "setCurrentScene",      "getTransitions",   "getCurrentTransition",
+					     "setCurrentTransition", "messageFromApp",   "messageToApp"};
 
 void BrowserApp::OnContextCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame>, CefRefPtr<CefV8Context> context)
 {

@@ -73,10 +73,9 @@ int main()
 	exports.create = create_sandbox_info;
 	passed &= expect(CreateBrowserSandboxInfo(exports, &sandbox_info) && sandbox_info,
 			 "a non-null sandbox-info creation succeeds");
-	passed &= expect(BrowserSandboxExecuteProcessSucceeded(-1),
-			 "the browser-process CefExecuteProcess result is -1");
-	passed &= expect(!BrowserSandboxExecuteProcessSucceeded(0),
-			 "a non--1 CefExecuteProcess result fails closed");
+	passed &=
+		expect(BrowserSandboxExecuteProcessSucceeded(-1), "the browser-process CefExecuteProcess result is -1");
+	passed &= expect(!BrowserSandboxExecuteProcessSucceeded(0), "a non--1 CefExecuteProcess result fails closed");
 
 	return passed ? 0 : 1;
 }

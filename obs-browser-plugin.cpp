@@ -89,7 +89,6 @@ static thread manager_thread;
 static bool manager_initialized = false;
 static std::atomic_bool cef_initialized{false};
 static std::atomic_bool browser_shutdown_requested{false};
-static std::mutex cef_lifecycle_mutex;
 os_event_t *cef_started_event = nullptr;
 
 #if defined(_WIN32)
@@ -118,8 +117,7 @@ public:
 		 * call otherwise the CEF message pump may stop functioning
 		 * correctly, it's only supposed to take 10ms max */
 #ifdef WIN32
-		QMetaObject::invokeMethod(&messageObject, "ExecuteTask",
-					  Qt::QueuedConnection,
+		QMetaObject::invokeMethod(&messageObject, "ExecuteTask", Qt::QueuedConnection,
 					  Q_ARG(MessageTask, task));
 #elif __APPLE__
 		ExecuteTask(task);
@@ -181,8 +179,7 @@ static bool is_local_file_modified(obs_properties_t *props, obs_property_t *, ob
 	return true;
 }
 
-static bool is_mediaflag_modified(obs_properties_t *props, obs_property_t *,
-				  obs_data_t *settings)
+static bool is_mediaflag_modified(obs_properties_t *props, obs_property_t *, obs_data_t *settings)
 {
 	UNUSED_PARAMETER(props);
 	bool enabled = obs_data_get_bool(settings, "is_media_flag");
@@ -190,8 +187,7 @@ static bool is_mediaflag_modified(obs_properties_t *props, obs_property_t *,
 	return true;
 }
 
-static bool is_fps_custom(obs_properties_t *props, obs_property_t *,
-			  obs_data_t *settings)
+static bool is_fps_custom(obs_properties_t *props, obs_property_t *, obs_data_t *settings)
 {
 	bool enabled = obs_data_get_bool(settings, "fps_custom");
 	obs_property_t *fps = obs_properties_get(props, "fps");
@@ -207,10 +203,8 @@ static obs_properties_t *browser_source_get_properties(void *data)
 	DStr path;
 
 	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
-	obs_property_t *prop = obs_properties_add_bool(
-		props, "is_local_file", obs_module_text("LocalFile"));
-	obs_property_t *is_media_flag_prop =
-		obs_properties_add_bool(props, "is_media_flag", "IsMediaFlag");
+	obs_property_t *prop = obs_properties_add_bool(props, "is_local_file", obs_module_text("LocalFile"));
+	obs_property_t *is_media_flag_prop = obs_properties_add_bool(props, "is_media_flag", "IsMediaFlag");
 	obs_property_set_visible(is_media_flag_prop, false);
 
 	if (bs && !bs->url.empty()) {
@@ -224,19 +218,14 @@ static obs_properties_t *browser_source_get_properties(void *data)
 	}
 
 	obs_property_set_modified_callback(prop, is_local_file_modified);
-	obs_property_set_modified_callback(is_media_flag_prop,
-					   is_mediaflag_modified);
-	obs_properties_add_path(props, "local_file",
-				obs_module_text("LocalFile"), OBS_PATH_FILE,
-				"*.*", path->array);
-	obs_properties_add_text(props, "url", obs_module_text("URL"),
-				OBS_TEXT_DEFAULT);
+	obs_property_set_modified_callback(is_media_flag_prop, is_mediaflag_modified);
+	obs_properties_add_path(props, "local_file", obs_module_text("LocalFile"), OBS_PATH_FILE, "*.*", path->array);
+	obs_properties_add_text(props, "url", obs_module_text("URL"), OBS_TEXT_DEFAULT);
 
 	obs_properties_add_int(props, "width", obs_module_text("Width"), 1, 8192, 1);
 	obs_properties_add_int(props, "height", obs_module_text("Height"), 1, 8192, 1);
 
-	obs_properties_add_bool(props, "reroute_audio",
-				obs_module_text("RerouteAudioStreamlabs"));
+	obs_properties_add_bool(props, "reroute_audio", obs_module_text("RerouteAudioStreamlabs"));
 
 	obs_property_t *fps_set = obs_properties_add_bool(props, "fps_custom", obs_module_text("CustomFrameRate"));
 	obs_property_set_modified_callback(fps_set, is_fps_custom);
@@ -252,10 +241,9 @@ static obs_properties_t *browser_source_get_properties(void *data)
 	obs_properties_add_bool(props, "shutdown", obs_module_text("ShutdownSourceNotVisible"));
 	obs_properties_add_bool(props, "restart_when_active", obs_module_text("RefreshBrowserActive"));
 
-	obs_property_t *controlLevel = obs_properties_add_list(
-		props, "webpage_control_level",
-		obs_module_text("WebpageControlLevel"), OBS_COMBO_TYPE_LIST,
-		OBS_COMBO_FORMAT_INT);
+	obs_property_t *controlLevel = obs_properties_add_list(props, "webpage_control_level",
+							       obs_module_text("WebpageControlLevel"),
+							       OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_set_visible(controlLevel, false);
 
 	obs_property_list_add_int(controlLevel, obs_module_text("WebpageControlLevel.Level.None"),
@@ -331,8 +319,7 @@ static obs_data_array_t *browser_source_get_messages(void *data)
 			messages = obs_data_array_create();
 			for (const auto &message : bs->messagesToApp) {
 				obs_data_t *msg_data = obs_data_create();
-				obs_data_set_string(msg_data, "message",
-						    message.c_str());
+				obs_data_set_string(msg_data, "message", message.c_str());
 				obs_data_array_push_back(messages, msg_data);
 				obs_data_release(msg_data);
 			}
@@ -344,6 +331,25 @@ static obs_data_array_t *browser_source_get_messages(void *data)
 }
 
 static CefRefPtr<BrowserApp> app;
+
+static std::mutex &CefLifecycleMutex()
+{
+	/* This module is loaded into CEF child processes to dispatch their entry
+	 * point. Keep browser-process-only state lazy. */
+	static std::mutex mutex;
+	return mutex;
+}
+
+static void SignalBrowserInitializationComplete()
+{
+	if (cef_started_event)
+		os_event_signal(cef_started_event);
+}
+
+bool obs_browser_initialized(void)
+{
+	return cef_initialized.load();
+}
 
 #ifdef _WIN32
 extern "C" __declspec(dllexport) int __cdecl obs_browser_execute_subprocess(void *sandbox_info)
@@ -388,9 +394,11 @@ static bool BrowserInit(obs_data_t *settings_obs)
 {
 	/* Serializing initialization with shutdown keeps an unload from missing a
 	 * successful CefInitialize call on UI-loop hosts. */
-	std::lock_guard<std::mutex> lifecycle_lock(cef_lifecycle_mutex);
-	if (browser_shutdown_requested.load())
+	std::lock_guard<std::mutex> lifecycle_lock(CefLifecycleMutex());
+	if (browser_shutdown_requested.load()) {
+		SignalBrowserInitializationComplete();
 		return false;
+	}
 
 	UNUSED_PARAMETER(settings_obs);
 	string path = obs_get_module_binary_path(obs_current_module());
@@ -419,8 +427,10 @@ static bool BrowserInit(obs_data_t *settings_obs)
 #ifdef _WIN32
 	BrowserSandboxExports sandbox_exports;
 	const BrowserSandboxMode sandbox_mode = GetBrowserSandboxMode(sandbox_exports);
-	if (sandbox_mode != BrowserSandboxMode::Legacy && sandbox_mode != BrowserSandboxMode::Enabled)
+	if (sandbox_mode != BrowserSandboxMode::Legacy && sandbox_mode != BrowserSandboxMode::Enabled) {
+		SignalBrowserInitializationComplete();
 		return false;
+	}
 
 	const bool use_sandbox = sandbox_mode == BrowserSandboxMode::Enabled;
 	if (use_sandbox) {
@@ -538,6 +548,7 @@ static bool BrowserInit(obs_data_t *settings_obs)
 		if (!CreateBrowserSandboxInfo(sandbox_exports, &sandbox_info)) {
 			blog(LOG_ERROR, "[obs-browser]: OBS failed to create Windows sandbox information.");
 			app = nullptr;
+			SignalBrowserInitializationComplete();
 			return false;
 		}
 	}
@@ -551,6 +562,7 @@ static bool BrowserInit(obs_data_t *settings_obs)
 		     "(result %d).",
 		     execute_result);
 		app = nullptr;
+		SignalBrowserInitializationComplete();
 		return false;
 	}
 #endif
@@ -572,6 +584,7 @@ static bool BrowserInit(obs_data_t *settings_obs)
 		blog(LOG_ERROR, "[obs-browser]: CEF failed to initialize.");
 #endif
 		app = nullptr;
+		SignalBrowserInitializationComplete();
 		return false;
 	}
 
@@ -579,7 +592,7 @@ static bool BrowserInit(obs_data_t *settings_obs)
 	CefRegisterSchemeHandlerFactory("http", "absolute", new BrowserSchemeHandlerFactory());
 
 	cef_initialized.store(true);
-	os_event_signal(cef_started_event);
+	SignalBrowserInitializationComplete();
 	return true;
 }
 
@@ -589,7 +602,7 @@ extern BrowserCppInt *message;
 
 static void BrowserShutdown(void)
 {
-	std::lock_guard<std::mutex> lifecycle_lock(cef_lifecycle_mutex);
+	std::lock_guard<std::mutex> lifecycle_lock(CefLifecycleMutex());
 	if (!cef_initialized.exchange(false))
 		return;
 
@@ -664,20 +677,16 @@ void RegisterBrowserSource()
 		return obs_module_text("BrowserSource");
 	};
 	info.create = [](obs_data_t *settings, obs_source_t *source) -> void * {
-		blog(LOG_INFO,
-		     "Browser Source, INIT via info.create , settings %p source %p",
-		     settings, source);
+		blog(LOG_INFO, "Browser Source, INIT via info.create , settings %p source %p", settings, source);
 
 		obs_browser_initialize(settings);
 		if (manager_initialized && app) {
-			bool enabled =
-				obs_data_get_bool(settings, "is_media_flag");
+			bool enabled = obs_data_get_bool(settings, "is_media_flag");
 			app->AddFlag(enabled);
 		}
 
 		obs_source_set_audio_mixers(source, 0xFF);
-		obs_source_set_monitoring_type(
-			source, OBS_MONITORING_TYPE_MONITOR_ONLY);
+		obs_source_set_monitoring_type(source, OBS_MONITORING_TYPE_MONITOR_ONLY);
 		BrowserSource *bs = new BrowserSource(settings, source);
 		blog(LOG_INFO, "Browserapp pointer: %p", app.get());
 
@@ -690,8 +699,7 @@ void RegisterBrowserSource()
 	info.update = [](void *data, obs_data_t *settings) {
 		BrowserSource *bs = static_cast<BrowserSource *>(data);
 		if (app) {
-			bool enabled =
-				obs_data_get_bool(settings, "is_media_flag");
+			bool enabled = obs_data_get_bool(settings, "is_media_flag");
 			app->media_flag = enabled ? 1 : 0;
 		}
 		bs->Update(settings);
