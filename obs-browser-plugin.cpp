@@ -375,8 +375,10 @@ static BrowserSandboxMode GetBrowserSandboxMode(BrowserSandboxExports &exports)
 	}
 
 	if (mode == BrowserSandboxMode::AbiVersionMismatch) {
-		blog(LOG_ERROR, "[obs-browser]: OBS Windows sandbox ABI version mismatch (expected %u).",
-		     OBS_BROWSER_SANDBOX_ABI_VERSION);
+		blog(LOG_ERROR,
+		     "[obs-browser]: OBS Windows sandbox ABI version mismatch (host advertised %u, "
+		     "plugin expected %u).",
+		     exports.abi_version(), OBS_BROWSER_SANDBOX_ABI_VERSION);
 		return mode;
 	}
 
