@@ -27,6 +27,7 @@
 
 extern bool QueueCEFTask(std::function<void()> task);
 extern "C" void obs_browser_initialize(void);
+extern bool obs_browser_initialized(void);
 extern os_event_t *cef_started_event;
 
 std::mutex popup_whitelist_mutex;
@@ -102,7 +103,7 @@ struct QCefCookieManagerInternal : QCefCookieManager {
 
 	QCefCookieManagerInternal(const std::string &storage_path, bool persist_session_cookies)
 	{
-		if (os_event_try(cef_started_event) != 0)
+		if (!obs_browser_initialized())
 			throw "Browser thread not initialized";
 
 		BPtr<char> rpath = obs_module_config_path(storage_path.c_str());
@@ -526,21 +527,21 @@ struct QCefInternal : QCef {
 
 bool QCefInternal::init_browser(void)
 {
-	if (os_event_try(cef_started_event) == 0)
+	if (obs_browser_initialized())
 		return true;
 
 	obs_browser_initialize();
-	return false;
+	return obs_browser_initialized();
 }
 
 bool QCefInternal::initialized(void)
 {
-	return os_event_try(cef_started_event) == 0;
+	return obs_browser_initialized();
 }
 
 bool QCefInternal::wait_for_browser_init(void)
 {
-	return os_event_wait(cef_started_event) == 0;
+	return cef_started_event && os_event_wait(cef_started_event) == 0 && obs_browser_initialized();
 }
 
 QCefWidget *QCefInternal::create_widget(QWidget *parent, const std::string &url, QCefCookieManager *cm)

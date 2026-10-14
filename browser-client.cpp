@@ -290,7 +290,8 @@ bool BrowserClient::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefR
 			json = (int)webpage_control_level;
 		} else if (name == "messageToApp") {
 			const std::string message = input_args->GetString(1).ToString();
-			blog(LOG_INFO, "[BrowserMessage] messageToApp called: arguments %zu, arg2 %s", input_args->GetSize(), message.c_str());
+			blog(LOG_INFO, "[BrowserMessage] messageToApp called: arguments %zu, arg2 %s",
+			     input_args->GetSize(), message.c_str());
 			std::lock_guard<std::mutex> lock(bs->messagesToAppMutex);
 			bs->messagesToApp.push_back(message);
 		}
