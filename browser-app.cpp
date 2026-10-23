@@ -18,6 +18,7 @@
 
 #include "browser-app.hpp"
 #include "browser-version.h"
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -139,8 +140,14 @@ void BrowserApp::OnBeforeCommandLineProcessing(const CefString &, CefRefPtr<CefC
 			command_line->AppendSwitchWithValue("enable-media-stream", "1");
 		}
 	}
-	command_line->AppendSwitchWithValue("remote-debugging-port", "9222");
-	command_line->AppendSwitchWithValue("remote-allow-origins", "http://localhost:9222");
+	if (command_line->GetSwitchValue("type").empty()) {
+		const char *debugPort = std::getenv("OBS_BROWSER_REMOTE_DEBUGGING_PORT");
+		if (debugPort && *debugPort) {
+			command_line->AppendSwitchWithValue("remote-debugging-port", debugPort);
+			command_line->AppendSwitchWithValue("remote-allow-origins",
+							    std::string("http://localhost:") + debugPort);
+		}
+	}
 #ifdef __APPLE__
 	command_line->AppendSwitch("use-mock-keychain");
 #elif !defined(_WIN32)

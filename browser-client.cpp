@@ -142,7 +142,7 @@ bool BrowserClient::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefR
 	const std::string &name = message->GetName();
 	CefRefPtr<CefListValue> input_args = message->GetArgumentList();
 	nlohmann::json json;
-	blog(LOG_INFO, "[BrowserMessage] OnProcessMessageReceived: %s", name.c_str());
+
 	if (!valid()) {
 		return false;
 	}
@@ -269,34 +269,12 @@ bool BrowserClient::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefR
 		}
 	}
 #else
-	switch (webpage_control_level) {
-	case ControlLevel::All:
-
-		[[fallthrough]];
-	case ControlLevel::Advanced:
-
-		[[fallthrough]];
-	case ControlLevel::Basic:
-
-		[[fallthrough]];
-	case ControlLevel::ReadUser:
-
-		[[fallthrough]];
-	case ControlLevel::ReadObs:
-
-		[[fallthrough]];
-	case ControlLevel::None:
-		if (name == "getControlLevel") {
-			json = (int)webpage_control_level;
-		} else if (name == "messageToApp") {
-			const std::string message = input_args->GetString(1).ToString();
-			blog(LOG_INFO, "[BrowserMessage] messageToApp called: arguments %zu, arg2 %s",
-			     input_args->GetSize(), message.c_str());
-			std::lock_guard<std::mutex> lock(bs->messagesToAppMutex);
-			bs->messagesToApp.push_back(message);
-		}
+	if (name == "getControlLevel") {
+		json = (int)webpage_control_level;
+	} else if (name == "messageToApp") {
+		std::lock_guard<std::mutex> lock(bs->messagesToAppMutex);
+		bs->messagesToApp.push_back(input_args->GetString(1).ToString());
 	}
-	UNUSED_PARAMETER(name);
 #endif
 
 	CefRefPtr<CefProcessMessage> msg = CefProcessMessage::Create("executeCallback");
