@@ -149,7 +149,7 @@ void BrowserSource::Destroy()
 
 void BrowserSource::ExecuteOnBrowser(BrowserFunc func, bool async)
 {
-		if (!async) {
+	if (!async) {
 #ifdef ENABLE_BROWSER_QT_LOOP
 		if (QThread::currentThread() == qApp->thread()) {
 			if (!!cefBrowser)
@@ -223,8 +223,7 @@ bool BrowserSource::CreateBrowser()
 		struct obs_video_info ovi;
 		obs_get_video_info(&ovi);
 		canvas_fps = (double)ovi.fps_num / (double)ovi.fps_den;
-		cefBrowserSettings.windowless_frame_rate =
-			(fps_custom) ? fps : (int)canvas_fps;
+		cefBrowserSettings.windowless_frame_rate = (fps_custom) ? fps : (int)canvas_fps;
 #endif
 #else
 		cefBrowserSettings.windowless_frame_rate = fps;
@@ -431,12 +430,10 @@ void BrowserSource::SetActive(bool active)
 	DispatchJSEvent("obsSourceActiveChanged", json.dump(), this);
 }
 
-void BrowserSource::MessageToBrowser(const char* message)
+void BrowserSource::MessageToBrowser(const char *message)
 {
 	if (destroying)
 		return;
-
-	blog(LOG_INFO, "[BrowserMessage] MessageToBrowser: %s", message);
 
 	nlohmann::json json;
 	json["message"] = message;
@@ -586,8 +583,7 @@ void BrowserSource::Tick()
 
 	if (!fps_custom) {
 		if (!!cefBrowser && canvas_fps != video_fps) {
-			cefBrowser->GetHost()->SetWindowlessFrameRate(
-				(int)video_fps);
+			cefBrowser->GetHost()->SetWindowlessFrameRate((int)video_fps);
 			canvas_fps = video_fps;
 		}
 	}
