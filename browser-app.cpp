@@ -18,6 +18,7 @@
 
 #include "browser-app.hpp"
 #include "browser-version.h"
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -47,6 +48,30 @@
 		(void)x;    \
 	}
 #endif
+
+/* The DevTools endpoint has no authentication, so it must stay off unless a developer opts in. */
+static int GetRemoteDebuggingPort()
+{
+	std::string value;
+#ifdef _WIN32
+	char buf[16];
+	DWORD len = GetEnvironmentVariableA("OBS_BROWSER_REMOTE_DEBUGGING_PORT", buf, sizeof(buf));
+	if (len == 0 || len >= sizeof(buf))
+		return 0;
+	value.assign(buf, len);
+#else
+	const char *env = std::getenv("OBS_BROWSER_REMOTE_DEBUGGING_PORT");
+	if (!env)
+		return 0;
+	value = env;
+#endif
+
+	char *end = nullptr;
+	long port = std::strtol(value.c_str(), &end, 10);
+	if (end == value.c_str() || *end != '\0' || port < 1 || port > 65535)
+		return 0;
+	return (int)port;
+}
 
 CefRefPtr<CefRenderProcessHandler> BrowserApp::GetRenderProcessHandler()
 {
@@ -139,8 +164,12 @@ void BrowserApp::OnBeforeCommandLineProcessing(const CefString &, CefRefPtr<CefC
 			command_line->AppendSwitchWithValue("enable-media-stream", "1");
 		}
 	}
-	command_line->AppendSwitchWithValue("remote-debugging-port", "9222");
-	command_line->AppendSwitchWithValue("remote-allow-origins", "http://localhost:9222");
+
+	if (int debugPort = GetRemoteDebuggingPort()) {
+		std::string port = std::to_string(debugPort);
+		command_line->AppendSwitchWithValue("remote-debugging-port", port);
+		command_line->AppendSwitchWithValue("remote-allow-origins", "http://localhost:" + port);
+	}
 #ifdef __APPLE__
 	command_line->AppendSwitch("use-mock-keychain");
 #elif !defined(_WIN32)
