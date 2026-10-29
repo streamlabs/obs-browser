@@ -390,6 +390,42 @@ static BrowserSandboxMode GetBrowserSandboxMode(BrowserSandboxExports &exports)
 
 	return mode;
 }
+
+/* Chromium's process singleton holds <cache dir>\lockfile open without FILE_SHARE_WRITE. */
+static bool IsCacheDirLockHeld(const char *cache_dir)
+{
+	std::string lockfile = cache_dir;
+	if (!lockfile.empty() && lockfile.back() != '/' && lockfile.back() != '\\')
+		lockfile += '/';
+	lockfile += "lockfile";
+
+	BPtr<wchar_t> lockfile_w;
+	os_utf8_to_wcs_ptr(lockfile.c_str(), 0, &lockfile_w);
+	if (!lockfile_w)
+		return false;
+
+	HANDLE handle = CreateFileW(lockfile_w, GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+				    FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (handle == INVALID_HANDLE_VALUE)
+		return GetLastError() == ERROR_SHARING_VIOLATION;
+
+	CloseHandle(handle);
+	return false;
+}
+
+/* Gives a previous instance that is shutting down time to release the cache dir. */
+static bool WaitForCacheDirUnlocked(const char *cache_dir)
+{
+	constexpr int timeout_ms = 3000;
+	constexpr int poll_interval_ms = 100;
+
+	for (int waited_ms = 0; IsCacheDirLockHeld(cache_dir); waited_ms += poll_interval_ms) {
+		if (waited_ms >= timeout_ms || browser_shutdown_requested.load())
+			return false;
+		os_sleep_ms(poll_interval_ms);
+	}
+	return true;
+}
 #endif
 
 static bool BrowserInit(obs_data_t *settings_obs)
@@ -535,6 +571,15 @@ static bool BrowserInit(obs_data_t *settings_obs)
 		hwaccel = tex_sharing_avail = obs_cef_all_drm_formats_supported();
 #endif
 		obs_leave_graphics();
+	}
+#endif
+
+#ifdef _WIN32
+	if (!WaitForCacheDirUnlocked(conf_path_abs)) {
+		blog(LOG_ERROR, "[obs-browser]: Browser cache directory is in use by another process; "
+				"browser sources are disabled for this session.");
+		SignalBrowserInitializationComplete();
+		return false;
 	}
 #endif
 
