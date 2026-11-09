@@ -98,6 +98,20 @@ static std::wstring deviceId;
 
 bool hwaccel = false;
 
+namespace {
+// Naive conversions between char* (Ex. from libobs) and filesystem::path using the platform codepage.
+std::filesystem::path pathFromUtf8(const char *path)
+{
+	return std::filesystem::path{reinterpret_cast<const char8_t *>(path)};
+}
+
+std::string utf8BytesFromPath(std::filesystem::path path)
+{
+	const std::u8string u8 = path.u8string();
+	return std::string{u8.begin(), u8.end()};
+}
+} // namespace
+
 /* ========================================================================= */
 
 #ifdef ENABLE_BROWSER_QT_LOOP
@@ -213,8 +227,9 @@ static obs_properties_t *browser_source_get_properties(void *data)
 		dstr_copy(path, bs->url.c_str());
 		dstr_replace(path, "\\", "/");
 		slash = strrchr(path->array, '/');
-		if (slash)
+		if (slash) {
 			dstr_resize(path, slash - path->array + 1);
+		}
 	}
 
 	obs_property_set_modified_callback(prop, is_local_file_modified);
@@ -342,8 +357,9 @@ static std::mutex &CefLifecycleMutex()
 
 static void SignalBrowserInitializationComplete()
 {
-	if (cef_started_event)
+	if (cef_started_event) {
 		os_event_signal(cef_started_event);
+	}
 }
 
 bool obs_browser_initialized(void)
@@ -395,19 +411,22 @@ static BrowserSandboxMode GetBrowserSandboxMode(BrowserSandboxExports &exports)
 static bool IsCacheDirLockHeld(const char *cache_dir)
 {
 	std::string lockfile = cache_dir;
-	if (!lockfile.empty() && lockfile.back() != '/' && lockfile.back() != '\\')
+	if (!lockfile.empty() && lockfile.back() != '/' && lockfile.back() != '\\') {
 		lockfile += '/';
+	}
 	lockfile += "lockfile";
 
 	BPtr<wchar_t> lockfile_w;
 	os_utf8_to_wcs_ptr(lockfile.c_str(), 0, &lockfile_w);
-	if (!lockfile_w)
+	if (!lockfile_w) {
 		return false;
+	}
 
 	HANDLE handle = CreateFileW(lockfile_w, GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
 				    FILE_ATTRIBUTE_NORMAL, nullptr);
-	if (handle == INVALID_HANDLE_VALUE)
+	if (handle == INVALID_HANDLE_VALUE) {
 		return GetLastError() == ERROR_SHARING_VIOLATION;
+	}
 
 	CloseHandle(handle);
 	return false;
@@ -420,8 +439,9 @@ static bool WaitForCacheDirUnlocked(const char *cache_dir)
 	constexpr int poll_interval_ms = 100;
 
 	for (int waited_ms = 0; IsCacheDirLockHeld(cache_dir); waited_ms += poll_interval_ms) {
-		if (waited_ms >= timeout_ms || browser_shutdown_requested.load())
+		if (waited_ms >= timeout_ms || browser_shutdown_requested.load()) {
 			return false;
+		}
 		os_sleep_ms(poll_interval_ms);
 	}
 	return true;
@@ -458,7 +478,7 @@ static bool BrowserInit(obs_data_t *settings_obs)
 	CefSettings settings;
 	settings.log_severity = LOGSEVERITY_FATAL;
 	BPtr<char> log_path = obs_module_config_path("debug.log");
-	BPtr<char> log_path_abs = os_get_abs_path_ptr(log_path);
+	BPtr<char> log_path_abs = os_get_abs_path_ptr(log_path.Get());
 	CefString(&settings.log_file) = log_path_abs;
 	settings.windowless_rendering_enabled = true;
 
@@ -479,6 +499,9 @@ static bool BrowserInit(obs_data_t *settings_obs)
 	}
 #else
 	settings.no_sandbox = true;
+#endif
+#if CHROME_VERSION_BUILD > 6533 && defined(CEF_HAS_CHROME_RUNTIME_SETTING)
+	settings.chrome_runtime = true;
 #endif
 
 	uint32_t obs_ver = obs_get_version();
@@ -544,6 +567,9 @@ static bool BrowserInit(obs_data_t *settings_obs)
 	settings.persist_user_preferences = 1;
 #endif
 	CefString(&settings.cache_path) = conf_path_abs;
+#if CHROME_VERSION_BUILD > 6533
+	CefString(&settings.root_cache_path) = conf_path_abs;
+#endif
 #if !defined(__APPLE__) || defined(ENABLE_BROWSER_LEGACY)
 	/* A sandboxed Windows process must use the main executable as its
 	 * subprocess, so leave this path empty. */
@@ -602,8 +628,9 @@ static bool BrowserInit(obs_data_t *settings_obs)
 
 	const int execute_result = CefExecuteProcess(args, app, sandbox_info);
 	if (!BrowserSandboxExecuteProcessSucceeded(execute_result)) {
-		if (sandbox_info)
+		if (sandbox_info) {
 			sandbox_exports.destroy(sandbox_info);
+		}
 		blog(LOG_ERROR,
 		     "[obs-browser]: CefExecuteProcess failed before initialization "
 		     "(result %d).",
@@ -620,8 +647,9 @@ static bool BrowserInit(obs_data_t *settings_obs)
 	RestoreSignalHandlers();
 #else
 	bool success = CefInitialize(args, settings, app, sandbox_info);
-	if (sandbox_info)
+	if (sandbox_info) {
 		sandbox_exports.destroy(sandbox_info);
+	}
 #endif
 
 	if (!success) {
@@ -650,8 +678,9 @@ extern BrowserCppInt *message;
 static void BrowserShutdown(void)
 {
 	std::lock_guard<std::mutex> lifecycle_lock(CefLifecycleMutex());
-	if (!cef_initialized.exchange(false))
+	if (!cef_initialized.exchange(false)) {
 		return;
+	}
 
 	CefClearSchemeHandlerFactories();
 
@@ -672,8 +701,9 @@ static void BrowserShutdown(void)
 #ifndef ENABLE_BROWSER_QT_LOOP
 static void BrowserManagerThread(obs_data_t *settings)
 {
-	if (!BrowserInit(settings))
+	if (!BrowserInit(settings)) {
 		return;
+	}
 
 	if (browser_shutdown_requested.load()) {
 		BrowserShutdown();
@@ -693,8 +723,9 @@ extern "C" EXPORT void obs_browser_initialize(obs_data_t *settings)
 #elif __APPLE__
 
 		ExecuteTask([settings]() {
-			if (!BrowserInit(settings))
+			if (!BrowserInit(settings)) {
 				return;
+			}
 			const float interval =
 				0.01f; // 10ms, for ex. 16.6ms = 60fps. We want a bit more than 60fps to keep CEF happy?
 			DoCefMessageLoopTimer(
@@ -787,8 +818,9 @@ void RegisterBrowserSource()
 	};
 	info.activate = [](void *data) {
 		BrowserSource *bs = static_cast<BrowserSource *>(data);
-		if (bs->restart)
+		if (bs->restart) {
 			bs->Refresh();
+		}
 		bs->SetActive(true);
 	};
 	info.message = [](void *data, obs_data_t *settings) {
@@ -866,12 +898,14 @@ static void handle_obs_frontend_event(enum obs_frontend_event event, void *)
 	case OBS_FRONTEND_EVENT_SCENE_CHANGED: {
 		OBSSourceAutoRelease source = obs_frontend_get_current_scene();
 
-		if (!source)
+		if (!source) {
 			break;
+		}
 
 		const char *name = obs_source_get_name(source);
-		if (!name)
+		if (!name) {
 			break;
+		}
 
 		nlohmann::json json = {{"name", name},
 				       {"width", obs_source_get_width(source)},
@@ -897,12 +931,14 @@ static void handle_obs_frontend_event(enum obs_frontend_event event, void *)
 	case OBS_FRONTEND_EVENT_TRANSITION_CHANGED: {
 		OBSSourceAutoRelease source = obs_frontend_get_current_transition();
 
-		if (!source)
+		if (!source) {
 			break;
+		}
 
 		const char *name = obs_source_get_name(source);
-		if (!name)
+		if (!name) {
 			break;
+		}
 
 		nlohmann::json json = {{"name", name}};
 
@@ -940,22 +976,26 @@ static inline void EnumAdapterCount()
 	UINT i = 0;
 
 	hr = CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void **)&factory);
-	if (FAILED(hr))
+	if (FAILED(hr)) {
 		return;
+	}
 
 	while (factory->EnumAdapters1(i++, &adapter) == S_OK) {
 		DXGI_ADAPTER_DESC desc;
 
 		hr = adapter->GetDesc(&desc);
-		if (FAILED(hr))
+		if (FAILED(hr)) {
 			continue;
+		}
 
-		if (i == 1)
+		if (i == 1) {
 			deviceId = desc.Description;
+		}
 
 		/* ignore Microsoft's 'basic' renderer' */
-		if (desc.VendorId == 0x1414 && desc.DeviceId == 0x8c)
+		if (desc.VendorId == 0x1414 && desc.DeviceId == 0x8c) {
 			continue;
+		}
 
 		adapterCount++;
 	}
@@ -1003,8 +1043,9 @@ static void check_hwaccel_support(void)
 	glVersion = gs_get_driver_version();
 	obs_leave_graphics();
 
-	if (!glVersion)
+	if (!glVersion) {
 		return;
+	}
 
 	if (strstr(glVersion, "NVIDIA") != NULL) {
 		hwaccel = false;
@@ -1021,8 +1062,121 @@ static void check_hwaccel_support(void)
 #endif
 #endif
 
+#if CHROME_VERSION_BUILD > 6533
+static void MigrateProfileConfigDir(filesystem::path oldDir, filesystem::path newDir, bool makeDirs)
+{
+	namespace fs = std::filesystem;
+
+	BPtr<char> configPath = obs_module_config_path(".");
+	fs::path rootPath{pathFromUtf8(configPath.Get())};
+
+	fs::path oldPath = rootPath / oldDir;
+	fs::path newPath = rootPath / newDir;
+
+	if (!fs::exists(oldPath)) {
+		return;
+	}
+
+	try {
+		if (makeDirs && !fs::exists(newPath)) {
+			fs::create_directories(newPath);
+		}
+		const auto copyOptions = fs::copy_options::recursive;
+		fs::copy(oldPath, newPath, copyOptions);
+	} catch (const fs::filesystem_error &error) {
+		blog(LOG_WARNING, "[obs-browser]: Error migrating cookies for '%s': %s", oldPath.c_str(), error.what());
+	}
+}
+
+static void MigrateDefaultProfileSubdirs(filesystem::path parent, bool makeDirs)
+{
+	namespace fs = std::filesystem;
+
+	constexpr std::array<std::u8string_view, 3> kMigrationDirectories{
+		u8"Local Storage",
+		u8"Session Storage",
+		u8"Network",
+	};
+	constexpr std::u8string_view kDefaultDirectoryPrefix{u8"Default"};
+
+	for (std::u8string_view directory : kMigrationDirectories) {
+		fs::path oldDirectory = parent / directory;
+		fs::path newDirectory = parent / kDefaultDirectoryPrefix / directory;
+
+		MigrateProfileConfigDir(oldDirectory, newDirectory, makeDirs);
+	}
+}
+
+static void MigrateToChromeRuntime()
+{
+	namespace fs = std::filesystem;
+	BPtr<char> defaultConfigPath = obs_module_config_path("Default");
+	fs::path defaultPath{pathFromUtf8(defaultConfigPath.Get())};
+	// User has already previously launched with Chrome Runtime
+	if (fs::exists(defaultPath)) {
+		blog(LOG_INFO, "[obs-browser]: Chrome Runtime Default profile detected. No migration necessary.");
+		return;
+	}
+
+	BPtr<char> localPrefsConfigPath = obs_module_config_path("LocalPrefs.json");
+	fs::path localPrefs{pathFromUtf8(localPrefsConfigPath.Get())};
+	// User has never launched old OBS Browser before
+	if (!fs::exists(localPrefs)) {
+		blog(LOG_DEBUG, "[obs-browser]: Alloy Runtime preferences not found. No migration necessary.");
+		return;
+	}
+
+	blog(LOG_INFO, "[obs-browser]: Migrating files to Chrome Runtime...");
+
+	try {
+		fs::create_directories(defaultPath);
+	} catch (const fs::filesystem_error &error) {
+		blog(LOG_WARNING, "[obs-browser]: Error creating Default profile: %s", error.what());
+	}
+
+	MigrateDefaultProfileSubdirs("", false);
+
+	BPtr<char> newLocalPrefsConfigPath = obs_module_config_path("Local State");
+	fs::path newLocalPrefs{pathFromUtf8(newLocalPrefsConfigPath.Get())};
+	try {
+		fs::copy(localPrefs, newLocalPrefs);
+	} catch (const fs::filesystem_error &error) {
+		blog(LOG_WARNING, "[obs-browser]: Error migrating preferences: %s", error.what());
+	}
+
+	constexpr std::string_view prefix = "obs_profile_cookies";
+
+	BPtr<char> serviceProfilesPath = obs_module_config_path(prefix.data());
+	fs::path serviceProfiles{pathFromUtf8(serviceProfilesPath.Get())};
+	if (fs::exists(serviceProfiles)) {
+		// User has service integration cookies that also must be copied
+		for (auto const &dir_entry : std::filesystem::directory_iterator{serviceProfiles}) {
+			if (!dir_entry.is_directory()) {
+				continue;
+			}
+			fs::path name{dir_entry.path().filename()};
+
+			fs::path oldDir = fs::path{prefix} / name;
+
+			fs::path newDir{prefix};
+			newDir += "_";
+			newDir += name;
+
+			MigrateProfileConfigDir(oldDir, newDir, true);
+
+			blog(LOG_INFO, "[obs-browser]: Migrated cookies for %s.", utf8BytesFromPath(name).c_str());
+		}
+	}
+
+	blog(LOG_INFO, "[obs-browser]: Migration of browser cookies and session completed.");
+}
+#endif
+
 bool obs_module_load(void)
 {
+#if CHROME_VERSION_BUILD > 6533
+	MigrateToChromeRuntime();
+#endif
 #ifdef ENABLE_BROWSER_QT_LOOP
 	qRegisterMetaType<MessageTask>("MessageTask");
 #endif
@@ -1040,8 +1194,9 @@ bool obs_module_load(void)
 #if defined(__APPLE__) && !defined(ENABLE_BROWSER_LEGACY)
 	/* Load CEF at runtime as required on macOS */
 	CefScopedLibraryLoader library_loader;
-	if (!library_loader.LoadInMain())
+	if (!library_loader.LoadInMain()) {
 		return false;
+	}
 #endif
 #endif
 	blog(LOG_INFO, "[obs-browser]: Version %s", OBS_BROWSER_VERSION_STRING);
@@ -1071,13 +1226,15 @@ void obs_module_post_load(void)
 	// Disabled OBS websocket because it is unused and has a QT dependency.
 	/*
 	auto vendor = obs_websocket_register_vendor("obs-browser");
-	if (!vendor)
+	if (!vendor) {
 		return;
+	}
 
 	auto emit_event_request_cb = [](obs_data_t *request_data, obs_data_t *, void *) {
 		const char *event_name = obs_data_get_string(request_data, "event_name");
-		if (!event_name)
+		if (!event_name) {
 			return;
+		}
 
 		OBSDataAutoRelease event_data = obs_data_get_obj(request_data, "event_data");
 		const char *event_data_string = event_data ? obs_data_get_json(event_data) : "{}";
@@ -1085,8 +1242,9 @@ void obs_module_post_load(void)
 		DispatchJSEvent(event_name, event_data_string, nullptr);
 	};
 
-	if (!obs_websocket_vendor_register_request(vendor, "emit_event", emit_event_request_cb, nullptr))
+	if (!obs_websocket_vendor_register_request(vendor, "emit_event", emit_event_request_cb, nullptr)) {
 		blog(LOG_WARNING, "[obs-browser]: Failed to register obs-websocket request emit_event");
+	}
 	*/
 }
 
@@ -1102,8 +1260,9 @@ void obs_module_unload(void)
 	});
 #else
 	if (manager_thread.joinable()) {
-		if (cef_initialized.load() && !QueueCEFTask([]() { CefQuitMessageLoop(); }))
+		if (cef_initialized.load() && !QueueCEFTask([]() { CefQuitMessageLoop(); })) {
 			blog(LOG_DEBUG, "[obs-browser]: Failed to post CefQuit task to loop");
+		}
 
 		manager_thread.join();
 	}

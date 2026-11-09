@@ -50,8 +50,9 @@ static bool SetHighDPIv2Scaling()
 int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 #if CHROME_VERSION_BUILD < 5615
-	if (!SetHighDPIv2Scaling())
+	if (!SetHighDPIv2Scaling()) {
 		CefEnableHighDPISupport();
+	}
 #endif
 
 	return ExecuteBrowserSubprocess(nullptr);
@@ -65,8 +66,9 @@ int main(int argc, char *argv[])
 {
 #if defined(__APPLE__) && !defined(ENABLE_BROWSER_LEGACY)
 	CefScopedLibraryLoader library_loader;
-	if (!library_loader.LoadInHelper())
+	if (!library_loader.LoadInHelper()) {
 		return 1;
+	}
 #endif
 	CefMainArgs mainArgs(argc, argv);
 	CefRefPtr<BrowserApp> mainApp(new BrowserApp());
