@@ -6,7 +6,7 @@
 #include <QWindow>
 #include <QApplication>
 
-#ifdef USE_UI_LOOP
+#ifdef ENABLE_BROWSER_QT_LOOP
 #include <QEventLoop>
 #include <QThread>
 #endif
@@ -27,7 +27,6 @@
 
 extern bool QueueCEFTask(std::function<void()> task);
 extern "C" void obs_browser_initialize(void);
-extern bool obs_browser_initialized(void);
 extern os_event_t *cef_started_event;
 
 std::mutex popup_whitelist_mutex;
@@ -103,12 +102,14 @@ struct QCefCookieManagerInternal : QCefCookieManager {
 
 	QCefCookieManagerInternal(const std::string &storage_path, bool persist_session_cookies)
 	{
-		if (!obs_browser_initialized())
+		if (os_event_try(cef_started_event) != 0) {
 			throw "Browser thread not initialized";
+		}
 
 		BPtr<char> rpath = obs_module_config_path(storage_path.c_str());
-		if (os_mkdirs(rpath.Get()) == MKDIR_ERROR)
+		if (os_mkdirs(rpath.Get()) == MKDIR_ERROR) {
 			throw "Failed to create cookie directory";
+		}
 
 		BPtr<char> path = os_get_abs_path_ptr(rpath.Get());
 
@@ -118,8 +119,9 @@ struct QCefCookieManagerInternal : QCefCookieManager {
 #endif
 		CefString(&settings.cache_path) = path.Get();
 		rc = CefRequestContext::CreateContext(settings, CefRefPtr<CefRequestContextHandler>());
-		if (rc)
+		if (rc) {
 			cm = rc->GetCookieManager(nullptr);
+		}
 
 		UNUSED_PARAMETER(persist_session_cookies);
 	}
@@ -140,8 +142,9 @@ struct QCefCookieManagerInternal : QCefCookieManager {
 #endif
 		CefString(&settings.cache_path) = storage_path;
 		rc = CefRequestContext::CreateContext(settings, CefRefPtr<CefRequestContextHandler>());
-		if (rc)
+		if (rc) {
 			cm = rc->GetCookieManager(nullptr);
+		}
 
 		UNUSED_PARAMETER(persist_session_cookies);
 		return true;
@@ -152,8 +155,9 @@ struct QCefCookieManagerInternal : QCefCookieManager {
 	virtual void CheckForCookie(const std::string &site, const std::string &cookie,
 				    cookie_exists_cb callback) override
 	{
-		if (!cm)
+		if (!cm) {
 			return;
+		}
 
 		CefRefPtr<CookieCheck> c = new CookieCheck(callback, cookie);
 		cm->VisitUrlCookies(site, false, c);
@@ -244,11 +248,13 @@ static bool XWindowHasAtom(Display *display, Window w, Atom a)
 	unsigned char *data = NULL;
 
 	if (XGetWindowProperty(display, w, a, 0, LONG_MAX, False, AnyPropertyType, &type, &format, &nItems, &bytesAfter,
-			       &data) != Success)
+			       &data) != Success) {
 		return false;
+	}
 
-	if (data)
+	if (data) {
 		XFree(data);
+	}
 
 	return type != None;
 }
@@ -262,8 +268,9 @@ static bool XWindowHasAtom(Display *display, Window w, Atom a)
  */
 void QCefWidgetInternal::unsetToplevelXdndProxy()
 {
-	if (!cefBrowser)
+	if (!cefBrowser) {
 		return;
+	}
 
 	CefWindowHandle browserHandle = cefBrowser->GetHost()->GetWindowHandle();
 	Display *xDisplay = cef_get_xdisplay();
@@ -276,11 +283,13 @@ void QCefWidgetInternal::unsetToplevelXdndProxy()
 	// Find the toplevel
 	Atom netWmPidAtom = XInternAtom(xDisplay, "_NET_WM_PID", False);
 	do {
-		if (XQueryTree(xDisplay, toplevel, &root, &parent, &children, &nChildren) == 0)
+		if (XQueryTree(xDisplay, toplevel, &root, &parent, &children, &nChildren) == 0) {
 			return;
+		}
 
-		if (children)
+		if (children) {
 			XFree(children);
+		}
 
 		if (root == parent || !XWindowHasAtom(xDisplay, parent, netWmPidAtom)) {
 			found = true;
@@ -289,8 +298,9 @@ void QCefWidgetInternal::unsetToplevelXdndProxy()
 		toplevel = parent;
 	} while (true);
 
-	if (!found)
+	if (!found) {
 		return;
+	}
 
 	// Check if the XdndProxy property is set
 	Atom xDndProxyAtom = XInternAtom(xDisplay, "XdndProxy", False);
@@ -321,8 +331,9 @@ void QCefWidgetInternal::Init()
 			CefWindowInfo windowInfo;
 
 			/* Make sure Init isn't called more than once. */
-			if (cefBrowser)
+			if (cefBrowser) {
 				return;
+			}
 
 #ifdef __APPLE__
 			QSize size = this->size();
@@ -369,16 +380,22 @@ void QCefWidgetInternal::resizeEvent(QResizeEvent *event)
 
 void QCefWidgetInternal::Resize()
 {
+	if (os_event_try(cef_started_event) != 0) {
+		return;
+	}
+
 	QSize size = this->size() * devicePixelRatioF();
 
 	bool success = QueueCEFTask([this, size]() {
-		if (!cefBrowser)
+		if (!cefBrowser) {
 			return;
+		}
 
 		CefWindowHandle handle = cefBrowser->GetHost()->GetWindowHandle();
 
-		if (!handle)
+		if (!handle) {
 			return;
+		}
 
 #ifdef _WIN32
 		SetWindowPos((HWND)handle, nullptr, 0, 0, size.width(), size.height(),
@@ -402,8 +419,9 @@ void QCefWidgetInternal::Resize()
 #endif
 	});
 
-	if (success && container)
+	if (success && container) {
 		container->resize(size.width(), size.height());
+	}
 #endif
 }
 
@@ -420,7 +438,7 @@ void QCefWidgetInternal::showEvent(QShowEvent *event)
 		obs_browser_initialize();
 		connect(&timer, &QTimer::timeout, this, &QCefWidgetInternal::Init);
 		timer.start(500);
-		Init();
+		QTimer::singleShot(0, [this]() { Init(); });
 	}
 }
 
@@ -439,8 +457,9 @@ void QCefWidgetInternal::setURL(const std::string &url_)
 
 void QCefWidgetInternal::reloadPage()
 {
-	if (cefBrowser)
+	if (cefBrowser) {
 		cefBrowser->ReloadIgnoreCache();
+	}
 }
 
 void QCefWidgetInternal::setStartupScript(const std::string &script_)
@@ -450,8 +469,9 @@ void QCefWidgetInternal::setStartupScript(const std::string &script_)
 
 void QCefWidgetInternal::executeJavaScript(const std::string &script_)
 {
-	if (!cefBrowser)
+	if (!cefBrowser) {
 		return;
+	}
 
 	CefRefPtr<CefFrame> frame = cefBrowser->GetMainFrame();
 	std::string url = frame->GetURL();
@@ -465,8 +485,9 @@ void QCefWidgetInternal::allowAllPopups(bool allow)
 
 bool QCefWidgetInternal::zoomPage(int direction)
 {
-	if (!cefBrowser || direction < -1 || direction > 1)
+	if (!cefBrowser || direction < -1 || direction > 1) {
 		return false;
+	}
 
 	CefRefPtr<CefBrowserHost> host = cefBrowser->GetHost();
 	if (direction == 0) {
@@ -485,8 +506,9 @@ bool QCefWidgetInternal::zoomPage(int direction)
 		}
 		zoomIdx++;
 	}
-	if (zoomIdx == zoomCount)
+	if (zoomIdx == zoomCount) {
 		return false;
+	}
 
 	int newZoomIdx = zoomIdx;
 	if (direction == -1 && zoomIdx > 0) {
@@ -527,21 +549,22 @@ struct QCefInternal : QCef {
 
 bool QCefInternal::init_browser(void)
 {
-	if (obs_browser_initialized())
+	if (os_event_try(cef_started_event) == 0) {
 		return true;
+	}
 
 	obs_browser_initialize();
-	return obs_browser_initialized();
+	return false;
 }
 
 bool QCefInternal::initialized(void)
 {
-	return obs_browser_initialized();
+	return os_event_try(cef_started_event) == 0;
 }
 
 bool QCefInternal::wait_for_browser_init(void)
 {
-	return cef_started_event && os_event_wait(cef_started_event) == 0 && obs_browser_initialized();
+	return os_event_wait(cef_started_event) == 0;
 }
 
 QCefWidget *QCefInternal::create_widget(QWidget *parent, const std::string &url, QCefCookieManager *cm)
@@ -551,10 +574,31 @@ QCefWidget *QCefInternal::create_widget(QWidget *parent, const std::string &url,
 	return new QCefWidgetInternal(parent, url, cmi ? cmi->rc : nullptr);
 }
 
+namespace {
+std::string getUpdatedCookiePath(std::string storagePath)
+{
+	constexpr std::string_view searchToken{"obs_profile_cookies/"};
+	constexpr std::string_view replaceToken{"obs_profile_cookies_"};
+
+	size_t pos = storagePath.find(searchToken);
+	if (pos != std::string::npos) {
+		storagePath.replace(pos, searchToken.length(), replaceToken);
+	}
+
+	return storagePath;
+}
+} // namespace
+
 QCefCookieManager *QCefInternal::create_cookie_manager(const std::string &storage_path, bool persist_session_cookies)
 {
+	std::string path = storage_path;
+#if CHROME_VERSION_BUILD > 6533
+	// TODO: Update obs-studio to use the new path structure due to subdirectories not being supported by CEF
+	// https://github.com/obsproject/obs-studio/issues/13498
+	path = getUpdatedCookiePath(storage_path);
+#endif
 	try {
-		return new QCefCookieManagerInternal(storage_path, persist_session_cookies);
+		return new QCefCookieManagerInternal(path, persist_session_cookies);
 	} catch (const char *error) {
 		blog(LOG_ERROR, "Failed to create cookie manager: %s", error);
 		return nullptr;
@@ -563,7 +607,13 @@ QCefCookieManager *QCefInternal::create_cookie_manager(const std::string &storag
 
 BPtr<char> QCefInternal::get_cookie_path(const std::string &storage_path)
 {
-	BPtr<char> rpath = obs_module_config_path(storage_path.c_str());
+	std::string path = storage_path;
+#if CHROME_VERSION_BUILD > 6533
+	// TODO: Update obs-studio to use the new path structure due to subdirectories not being supported by CEF
+	// https://github.com/obsproject/obs-studio/issues/13498
+	path = getUpdatedCookiePath(storage_path);
+#endif
+	BPtr<char> rpath = obs_module_config_path(path.c_str());
 	return os_get_abs_path_ptr(rpath.Get());
 }
 

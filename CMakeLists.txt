@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16...3.25)
+cmake_minimum_required(VERSION 3.28...3.30)
 
 option(ENABLE_BROWSER "Enable browser source plugin (required Chromium Embedded Framework)" OFF)
 
@@ -21,24 +21,27 @@ mark_as_advanced(ENABLE_BROWSER_PANELS)
 target_sources(
   obs-browser
   PRIVATE # cmake-format: sortable
-          browser-app.cpp
-          browser-app.hpp
-          browser-client.cpp
-          browser-client.hpp
-          browser-scheme.cpp
-          browser-scheme.hpp
-          browser-version.h
-          cef-headers.hpp
-          deps/base64/base64.cpp
-          deps/base64/base64.hpp
-          deps/ip-string.hpp
-          deps/signal-restore.cpp
-          deps/signal-restore.hpp
-          deps/wide-string.cpp
-          deps/wide-string.hpp
-          obs-browser-plugin.cpp
-          obs-browser-source.cpp
-          obs-browser-source.hpp)
+    browser-app.cpp
+    browser-app.hpp
+    browser-client.cpp
+    browser-client.hpp
+    browser-dummy-client.cpp
+    browser-dummy-client.hpp
+    browser-scheme.cpp
+    browser-scheme.hpp
+    browser-version.h
+    cef-headers.hpp
+    deps/base64/base64.cpp
+    deps/base64/base64.hpp
+    deps/ip-string.hpp
+    deps/signal-restore.cpp
+    deps/signal-restore.hpp
+    deps/wide-string.cpp
+    deps/wide-string.hpp
+    obs-browser-plugin.cpp
+    obs-browser-source.cpp
+    obs-browser-source.hpp
+)
 
 if(OS_MACOS)
   list(APPEND obs-browser_SOURCES
@@ -49,7 +52,7 @@ endif()
 target_sources(obs-browser PRIVATE ${obs-browser_SOURCES})
 target_include_directories(obs-browser PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/deps")
 
-target_compile_features(obs-browser PRIVATE cxx_std_17)
+target_compile_features(obs-browser PRIVATE cxx_std_20)
 # Note: OBS::websocket-api was removed from this list
 target_link_libraries(obs-browser PRIVATE OBS::libobs OBS::frontend-api nlohmann_json::nlohmann_json)
 

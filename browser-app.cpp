@@ -49,6 +49,12 @@
 	}
 #endif
 
+#ifdef _WIN32
+constexpr bool kIsPlatformWindows = true;
+#else
+constexpr bool kIsPlatformWindows = false;
+#endif
+
 CefRefPtr<CefRenderProcessHandler> BrowserApp::GetRenderProcessHandler()
 {
 	return this;
@@ -57,6 +63,11 @@ CefRefPtr<CefRenderProcessHandler> BrowserApp::GetRenderProcessHandler()
 CefRefPtr<CefBrowserProcessHandler> BrowserApp::GetBrowserProcessHandler()
 {
 	return this;
+}
+
+CefRefPtr<CefClient> BrowserApp::GetDefaultClient()
+{
+	return GetDummy();
 }
 
 void BrowserApp::OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar)
@@ -68,6 +79,52 @@ void BrowserApp::AddFlag(bool flag)
 {
 	std::lock_guard<std::mutex> guard(flag_mutex);
 	this->media_flags.push(flag);
+}
+
+void BrowserApp::OnContextInitialized()
+{
+	// Without a default client, CefBrowser is unmanaged, allowing full-blown Chromium windows outside of our control.
+	// We don't actually want those, so define a dummy client which will automatically close any such windows.
+	dummy = new BrowserDummyClient();
+
+	CefRefPtr<CefRequestContext> requestContext = CefRequestContext::GetGlobalContext();
+	CefString errorMessage;
+	CefRefPtr<CefValue> optionValue = CefValue::Create();
+
+	constexpr std::array<std::string_view, 20> kBrowserFeaturesToDisable{
+		"autofill.credit_card_enabled",
+		"autofill.enabled",
+		"autofill.iban_enabled",
+		"autofill.payment_card_benefits",
+		"autofill.payment_cvc_storage",
+		"autofill.profile_enabled",
+		"autologin.enabled",
+		"browser_labs_enabled",
+		"credentials_enable_autosignin",
+		"credentials_enable_service",
+		"payments.can_make_payment_enabled",
+		"printing.enabled",
+		"search.suggest_enabled",
+		"shopping_list_enabled",
+		"side_panel.google_search_side_panel_enabled",
+		"side_search.enabled",
+		"signin.allowed",
+		"signin.allowed_on_next_startup",
+		"translate",
+		"url_keyed_anonymized_data_collection.enabled"};
+
+	constexpr std::array<std::string_view, 2> kBrowserFeaturesToEnable{"extensions.block_external_extensions",
+									   "extensions.disabled"};
+
+	optionValue->SetBool(false);
+	for (std::string_view feature : kBrowserFeaturesToDisable) {
+		requestContext->SetPreference(feature.data(), optionValue.get(), errorMessage);
+	}
+
+	optionValue->SetBool(true);
+	for (std::string_view feature : kBrowserFeaturesToEnable) {
+		requestContext->SetPreference(feature.data(), optionValue.get(), errorMessage);
+	}
 }
 
 void BrowserApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_line)
@@ -108,21 +165,35 @@ void BrowserApp::OnBeforeCommandLineProcessing(const CefString &, CefRefPtr<CefC
 	 * instead of escalating to Chromium's fatal "GPU process isn't usable" abort. */
 	command_line->AppendSwitch("disable-gpu-process-crash-limit");
 
+	// See https://github.com/chromiumembedded/cef/issues/3966 for 'StorageNotificationService' requirement.
+	constexpr std::string_view kDefaultDisabledFeatures{
+		"CalculateNativeWinOcclusion,GlobalShortcutsPortal,HardwareMediaKeyHandling,LiveCaption,"
+		"LocalNetworkAccessChecksWebSockets,MediaRouter,StorageNotificationService,WebBluetooth,"
+		"EnableWindowsGamingInputDataFetcher"};
+
+	std::string disableFeatures{};
+
+	if constexpr (kIsPlatformWindows) {
+		disableFeatures.append(kDefaultDisabledFeatures);
+		command_line->AppendSwitch("do-not-de-elevate");
+	} else {
+		constexpr std::string_view kWindowsFeature{",EnableWindowsGamingInputDataFetcher"};
+		constexpr size_t kNonWindowsLength = kDefaultDisabledFeatures.size() - kWindowsFeature.size();
+		disableFeatures.append(kDefaultDisabledFeatures.substr(0, kNonWindowsLength));
+	}
+
 	if (command_line->HasSwitch("disable-features")) {
 		// Don't override existing, as this can break OSR
-		std::string disableFeatures = command_line->GetSwitchValue("disable-features");
-		disableFeatures += ",HardwareMediaKeyHandling";
-#ifdef _WIN32
-		disableFeatures += ",EnableWindowsGamingInputDataFetcher";
-#endif
-		disableFeatures += ",WebBluetooth";
-		command_line->AppendSwitchWithValue("disable-features", disableFeatures);
+		disableFeatures.append(",");
+		disableFeatures.append(command_line->GetSwitchValue("disable-features"));
+	}
+
+	if (command_line->HasSwitch("disable-blink-features")) {
+		std::string disableBlinkFeatures = command_line->GetSwitchValue("disable-blink-features");
+		disableBlinkFeatures += ",DocumentPictureInPictureAPI";
+		command_line->AppendSwitchWithValue("disable-blink-features", disableBlinkFeatures);
 	} else {
-		command_line->AppendSwitchWithValue("disable-features", "WebBluetooth,"
-#ifdef _WIN32
-									"EnableWindowsGamingInputDataFetcher,"
-#endif
-									"HardwareMediaKeyHandling");
+		command_line->AppendSwitchWithValue("disable-blink-features", "DocumentPictureInPictureAPI");
 	}
 
 	command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");
@@ -148,6 +219,10 @@ void BrowserApp::OnBeforeCommandLineProcessing(const CefString &, CefRefPtr<CefC
 							    std::string("http://localhost:") + debugPort);
 		}
 	}
+
+	command_line->AppendSwitch("disable-extensions");
+	command_line->AppendSwitchWithValue("disable-features", disableFeatures);
+	command_line->AppendSwitch("hide-crash-restore-bubble");
 #ifdef __APPLE__
 	command_line->AppendSwitch("use-mock-keychain");
 #elif !defined(_WIN32)
@@ -200,8 +275,9 @@ void BrowserApp::ExecuteJSFunction(CefRefPtr<CefBrowser> browser, const char *fu
 		CefRefPtr<CefV8Value> obsStudioObj = globalObj->GetValue("obsstudio");
 		CefRefPtr<CefV8Value> jsFunction = obsStudioObj->GetValue(functionName);
 
-		if (jsFunction && jsFunction->IsFunction())
+		if (jsFunction && jsFunction->IsFunction()) {
 			jsFunction->ExecuteFunction(nullptr, arguments);
+		}
 
 		context->Exit();
 	}
@@ -283,8 +359,9 @@ bool BrowserApp::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefRefP
 		nlohmann::json payloadJson = nlohmann::json::parse(args->GetString(1).ToString(), nullptr, false);
 
 		nlohmann::json wrapperJson;
-		if (args->GetSize() > 1)
+		if (args->GetSize() > 1) {
 			wrapperJson["detail"] = payloadJson;
+		}
 		std::string wrapperJsonString = wrapperJson.dump();
 		std::string script;
 
@@ -345,8 +422,9 @@ bool BrowserApp::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser, CefRefP
 
 		args.push_back(retval);
 
-		if (callback)
+		if (callback) {
 			callback->ExecuteFunction(nullptr, args);
+		}
 
 		context->Exit();
 
@@ -382,19 +460,21 @@ bool BrowserApp::Execute(const CefString &name, CefRefPtr<CefV8Value>, const Cef
 		/* Pass on arguments */
 		for (u_long l = 0; l < arguments.size(); l++) {
 			u_long pos;
-			if (arguments[0]->IsFunction())
+			if (arguments[0]->IsFunction()) {
 				pos = l;
-			else
+			} else {
 				pos = l + 1;
+			}
 
-			if (arguments[l]->IsString())
+			if (arguments[l]->IsString()) {
 				args->SetString(pos, arguments[l]->GetStringValue());
-			else if (arguments[l]->IsInt())
+			} else if (arguments[l]->IsInt()) {
 				args->SetInt(pos, arguments[l]->GetIntValue());
-			else if (arguments[l]->IsBool())
+			} else if (arguments[l]->IsBool()) {
 				args->SetBool(pos, arguments[l]->GetBoolValue());
-			else if (arguments[l]->IsDouble())
+			} else if (arguments[l]->IsDouble()) {
 				args->SetDouble(pos, arguments[l]->GetDoubleValue());
+			}
 		}
 
 		CefRefPtr<CefBrowser> browser = CefV8Context::GetCurrentContext()->GetBrowser();
@@ -425,8 +505,9 @@ bool MessageObject::ExecuteNextBrowserTask()
 	Task nextTask;
 	{
 		std::lock_guard<std::mutex> lock(browserTaskMutex);
-		if (!browserTasks.size())
+		if (!browserTasks.size()) {
 			return false;
+		}
 
 		nextTask = browserTasks[0];
 		browserTasks.pop_front();
@@ -443,10 +524,11 @@ void MessageObject::ExecuteTask(MessageTask task)
 
 void MessageObject::DoCefMessageLoop(int ms)
 {
-	if (ms)
+	if (ms) {
 		QTimer::singleShot((int)ms + 2, []() { CefDoMessageLoopWork(); });
-	else
+	} else {
 		CefDoMessageLoopWork();
+	}
 }
 
 void MessageObject::Process()
@@ -467,10 +549,11 @@ void BrowserApp::OnScheduleMessagePumpWork(int64 delay_ms)
 void BrowserApp::OnScheduleMessagePumpWork(int64_t delay_ms)
 #endif
 {
-	if (delay_ms < 0)
+	if (delay_ms < 0) {
 		delay_ms = 0;
-	else if (delay_ms > MAX_DELAY)
+	} else if (delay_ms > MAX_DELAY) {
 		delay_ms = MAX_DELAY;
+	}
 
 	if (!frameTimer.isActive()) {
 		QObject::connect(&frameTimer, &QTimer::timeout, &messageObject, &MessageObject::Process);

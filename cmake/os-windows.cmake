@@ -8,15 +8,21 @@ target_compile_options(obs-browser PRIVATE $<$<CONFIG:Debug>:/U_DEBUG>)
 target_link_libraries(obs-browser PRIVATE CEF::Wrapper CEF::Library d3d11 dxgi)
 target_link_options(obs-browser PRIVATE /IGNORE:4099)
 
+configure_file(cmake/windows/obs-module.rc.in obs-browser.rc)
+target_sources(obs-browser PRIVATE obs-browser.rc)
+
 add_executable(obs-browser-helper WIN32 EXCLUDE_FROM_ALL)
 add_executable(OBS::browser-helper ALIAS obs-browser-helper)
 
 target_sources(
   obs-browser-helper
   PRIVATE # cmake-format: sortable
-          browser-app.cpp browser-app.hpp cef-headers.hpp obs-browser-page.manifest obs-browser-sandbox.h
+          browser-app.cpp browser-app.hpp browser-dummy-client.cpp browser-dummy-client.hpp cef-headers.hpp obs-browser-page.manifest obs-browser-sandbox.h
           obs-browser-subprocess-win.cpp obs-browser-subprocess-win.hpp
           obs-browser-page/obs-browser-page-main.cpp)
+
+configure_file(cmake/windows/obs-module-helper.rc.in obs-browser-page.rc)
+target_sources(obs-browser-helper PRIVATE obs-browser-page.rc)
 
 target_sources(obs-browser PRIVATE obs-browser-sandbox.h obs-browser-subprocess-win.cpp
                                    obs-browser-subprocess-win.hpp obs-browser-sandbox-selection.cpp
@@ -25,7 +31,7 @@ target_sources(obs-browser PRIVATE obs-browser-sandbox.h obs-browser-subprocess-
 target_include_directories(obs-browser-helper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/deps"
                                                       "${CMAKE_CURRENT_SOURCE_DIR}/obs-browser-page")
 
-target_compile_features(obs-browser-helper PRIVATE cxx_std_17)
+target_compile_features(obs-browser-helper PRIVATE cxx_std_20)
 set_property(TARGET obs-browser-helper PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
 target_compile_definitions(
   obs-browser-helper

@@ -38,6 +38,7 @@ enum class ControlLevel : int {
 inline constexpr ControlLevel DEFAULT_CONTROL_LEVEL = ControlLevel::ReadObs;
 
 extern bool hwaccel;
+bool obs_browser_initialized(void);
 
 struct BrowserSource {
 	BrowserSource **p_prev_next = nullptr;
