@@ -12,8 +12,26 @@ endif()
 find_package(CEF 95 REQUIRED)
 find_package(nlohmann_json 3.11 REQUIRED)
 
+include(CMakePushCheckState)
+include(CheckCXXSourceCompiles)
+cmake_push_check_state(RESET)
+set(CMAKE_REQUIRED_INCLUDES "${CEF_ROOT_DIR}")
+check_cxx_source_compiles(
+  "#include <include/internal/cef_types.h>
+   int main() { return CEF_PERMISSION_TYPE_LOOPBACK_NETWORK; }"
+  CEF_HAS_LOOPBACK_NETWORK_PERMISSION)
+check_cxx_source_compiles(
+  "#include <include/internal/cef_types.h>
+   int main() { cef_settings_t settings{}; settings.chrome_runtime = 1; return 0; }"
+  CEF_HAS_CHROME_RUNTIME_SETTING)
+cmake_pop_check_state()
+
 add_library(obs-browser MODULE)
 add_library(OBS::browser ALIAS obs-browser)
+target_compile_definitions(
+  obs-browser
+  PRIVATE $<$<BOOL:${CEF_HAS_LOOPBACK_NETWORK_PERMISSION}>:CEF_HAS_LOOPBACK_NETWORK_PERMISSION>
+          $<$<BOOL:${CEF_HAS_CHROME_RUNTIME_SETTING}>:CEF_HAS_CHROME_RUNTIME_SETTING>)
 
 option(ENABLE_BROWSER_PANELS "Enable Qt web browser panel support" OFF)
 mark_as_advanced(ENABLE_BROWSER_PANELS)

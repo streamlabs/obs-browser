@@ -53,7 +53,7 @@ CefRefPtr<CefDisplayHandler> BrowserClient::GetDisplayHandler()
 	return this;
 }
 
-#if CHROME_VERSION_BUILD >= 6533
+#if CHROME_VERSION_BUILD >= 6533 && defined(CEF_HAS_LOOPBACK_NETWORK_PERMISSION)
 CefRefPtr<CefPermissionHandler> BrowserClient::GetPermissionHandler()
 {
 	return this;
@@ -325,7 +325,7 @@ bool BrowserClient::OnTooltip(CefRefPtr<CefBrowser>, CefString &text)
 #endif
 }
 
-#if CHROME_VERSION_BUILD >= 6533
+#if CHROME_VERSION_BUILD >= 6533 && defined(CEF_HAS_LOOPBACK_NETWORK_PERMISSION)
 /* CefPermissionHandler */
 bool BrowserClient::OnShowPermissionPrompt(CefRefPtr<CefBrowser>, uint64_t, const CefString &,
 					   uint32_t requested_permissions,

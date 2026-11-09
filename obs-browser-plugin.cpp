@@ -495,7 +495,7 @@ static bool BrowserInit(obs_data_t *settings_obs)
 #else
 	settings.no_sandbox = true;
 #endif
-#if CHROME_VERSION_BUILD > 6533 && CHROME_VERSION_BUILD <= 6613
+#if CHROME_VERSION_BUILD > 6533 && defined(CEF_HAS_CHROME_RUNTIME_SETTING)
 	settings.chrome_runtime = true;
 #endif
 
