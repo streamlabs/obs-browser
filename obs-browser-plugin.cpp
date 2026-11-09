@@ -357,8 +357,9 @@ static std::mutex &CefLifecycleMutex()
 
 static void SignalBrowserInitializationComplete()
 {
-	if (cef_started_event)
+	if (cef_started_event) {
 		os_event_signal(cef_started_event);
+	}
 }
 
 bool obs_browser_initialized(void)
@@ -410,19 +411,22 @@ static BrowserSandboxMode GetBrowserSandboxMode(BrowserSandboxExports &exports)
 static bool IsCacheDirLockHeld(const char *cache_dir)
 {
 	std::string lockfile = cache_dir;
-	if (!lockfile.empty() && lockfile.back() != '/' && lockfile.back() != '\\')
+	if (!lockfile.empty() && lockfile.back() != '/' && lockfile.back() != '\\') {
 		lockfile += '/';
+	}
 	lockfile += "lockfile";
 
 	BPtr<wchar_t> lockfile_w;
 	os_utf8_to_wcs_ptr(lockfile.c_str(), 0, &lockfile_w);
-	if (!lockfile_w)
+	if (!lockfile_w) {
 		return false;
+	}
 
 	HANDLE handle = CreateFileW(lockfile_w, GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
 				    FILE_ATTRIBUTE_NORMAL, nullptr);
-	if (handle == INVALID_HANDLE_VALUE)
+	if (handle == INVALID_HANDLE_VALUE) {
 		return GetLastError() == ERROR_SHARING_VIOLATION;
+	}
 
 	CloseHandle(handle);
 	return false;
@@ -435,8 +439,9 @@ static bool WaitForCacheDirUnlocked(const char *cache_dir)
 	constexpr int poll_interval_ms = 100;
 
 	for (int waited_ms = 0; IsCacheDirLockHeld(cache_dir); waited_ms += poll_interval_ms) {
-		if (waited_ms >= timeout_ms || browser_shutdown_requested.load())
+		if (waited_ms >= timeout_ms || browser_shutdown_requested.load()) {
 			return false;
+		}
 		os_sleep_ms(poll_interval_ms);
 	}
 	return true;
@@ -623,8 +628,9 @@ static bool BrowserInit(obs_data_t *settings_obs)
 
 	const int execute_result = CefExecuteProcess(args, app, sandbox_info);
 	if (!BrowserSandboxExecuteProcessSucceeded(execute_result)) {
-		if (sandbox_info)
+		if (sandbox_info) {
 			sandbox_exports.destroy(sandbox_info);
+		}
 		blog(LOG_ERROR,
 		     "[obs-browser]: CefExecuteProcess failed before initialization "
 		     "(result %d).",
@@ -641,8 +647,9 @@ static bool BrowserInit(obs_data_t *settings_obs)
 	RestoreSignalHandlers();
 #else
 	bool success = CefInitialize(args, settings, app, sandbox_info);
-	if (sandbox_info)
+	if (sandbox_info) {
 		sandbox_exports.destroy(sandbox_info);
+	}
 #endif
 
 	if (!success) {
@@ -671,8 +678,9 @@ extern BrowserCppInt *message;
 static void BrowserShutdown(void)
 {
 	std::lock_guard<std::mutex> lifecycle_lock(CefLifecycleMutex());
-	if (!cef_initialized.exchange(false))
+	if (!cef_initialized.exchange(false)) {
 		return;
+	}
 
 	CefClearSchemeHandlerFactories();
 
@@ -693,8 +701,9 @@ static void BrowserShutdown(void)
 #ifndef ENABLE_BROWSER_QT_LOOP
 static void BrowserManagerThread(obs_data_t *settings)
 {
-	if (!BrowserInit(settings))
+	if (!BrowserInit(settings)) {
 		return;
+	}
 
 	if (browser_shutdown_requested.load()) {
 		BrowserShutdown();
@@ -714,8 +723,9 @@ extern "C" EXPORT void obs_browser_initialize(obs_data_t *settings)
 #elif __APPLE__
 
 		ExecuteTask([settings]() {
-			if (!BrowserInit(settings))
+			if (!BrowserInit(settings)) {
 				return;
+			}
 			const float interval =
 				0.01f; // 10ms, for ex. 16.6ms = 60fps. We want a bit more than 60fps to keep CEF happy?
 			DoCefMessageLoopTimer(

@@ -128,7 +128,7 @@ struct BrowserSource {
 	void SendKeyClick(const struct obs_key_event *event, bool key_up);
 	void SetShowing(bool showing);
 	void SetActive(bool active);
-	void MessageToBrowser(const char* message);
+	void MessageToBrowser(const char *message);
 	void Refresh();
 
 #if defined(BROWSER_EXTERNAL_BEGIN_FRAME_ENABLED) && defined(ENABLE_BROWSER_SHARED_TEXTURE)

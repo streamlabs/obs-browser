@@ -443,8 +443,9 @@ void BrowserSource::SetActive(bool active)
 
 void BrowserSource::MessageToBrowser(const char *message)
 {
-	if (destroying)
+	if (destroying) {
 		return;
+	}
 
 	nlohmann::json json;
 	json["message"] = message;
