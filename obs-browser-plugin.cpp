@@ -376,12 +376,46 @@ extern "C" __declspec(dllexport) int __cdecl obs_browser_execute_subprocess(void
 static BrowserSandboxMode GetBrowserSandboxMode(BrowserSandboxExports &exports)
 {
 	HMODULE executable = GetModuleHandleW(nullptr);
-	exports.abi_version = reinterpret_cast<obs_browser_sandbox_abi_version_proc>(
-		GetProcAddress(executable, "obs_browser_sandbox_abi_version"));
-	exports.create = reinterpret_cast<obs_browser_sandbox_info_create_proc>(
-		GetProcAddress(executable, "obs_browser_sandbox_info_create"));
-	exports.destroy = reinterpret_cast<obs_browser_sandbox_info_destroy_proc>(
-		GetProcAddress(executable, "obs_browser_sandbox_info_destroy"));
+	auto find_exports = [&exports](HMODULE module) {
+		exports.abi_version = reinterpret_cast<obs_browser_sandbox_abi_version_proc>(
+			GetProcAddress(module, "obs_browser_sandbox_abi_version"));
+		exports.create = reinterpret_cast<obs_browser_sandbox_info_create_proc>(
+			GetProcAddress(module, "obs_browser_sandbox_info_create"));
+		exports.destroy = reinterpret_cast<obs_browser_sandbox_info_destroy_proc>(
+			GetProcAddress(module, "obs_browser_sandbox_info_destroy"));
+	};
+	find_exports(executable);
+
+	if (!exports.abi_version) {
+		/* CEF bootstrap keeps the host ABI in its already loaded client DLL. */
+		std::wstring executable_path(MAX_PATH, L'\0');
+		DWORD path_length;
+		for (;;) {
+			path_length = GetModuleFileNameW(nullptr, executable_path.data(),
+							 static_cast<DWORD>(executable_path.size()));
+			if (!path_length || executable_path.size() >= 32768) {
+				blog(LOG_ERROR, "[obs-browser]: Could not identify the Windows sandbox ABI host.");
+				return BrowserSandboxMode::MissingLifecycleExports;
+			}
+			if (path_length < executable_path.size()) {
+				break;
+			}
+			executable_path.resize(executable_path.size() * 2);
+		}
+		executable_path.resize(path_length);
+		const std::filesystem::path path(executable_path);
+		if (_wcsicmp(path.extension().c_str(), L".exe") == 0) {
+			const std::wstring client_name = path.stem().wstring() + L".dll";
+			if (HMODULE client = GetModuleHandleW(client_name.c_str())) {
+				find_exports(client);
+				if (!exports.abi_version) {
+					blog(LOG_ERROR,
+					     "[obs-browser]: Loaded client DLL does not expose the Windows sandbox ABI.");
+					return BrowserSandboxMode::MissingLifecycleExports;
+				}
+			}
+		}
+	}
 
 	const BrowserSandboxMode mode = SelectBrowserSandboxMode(exports);
 	if (mode == BrowserSandboxMode::Legacy) {
