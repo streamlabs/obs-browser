@@ -26,17 +26,26 @@ namespace {
 void shutdown_check_thread(DWORD parent_pid, DWORD main_thread_id, HANDLE shutdown_event)
 {
 	HANDLE parent = OpenProcess(SYNCHRONIZE, false, parent_pid);
-	if (!parent)
+	if (!parent) {
 		return;
+	}
 
 	HANDLE handles[2] = {parent, shutdown_event};
 
 	DWORD ret = WaitForMultipleObjects(2, handles, false, INFINITE);
 	if (ret == WAIT_OBJECT_0) {
-		PostThreadMessage(main_thread_id, WM_QUIT, 0, 0);
+		// A static USER32 import prevents locked-down renderers from starting.
+		if (HMODULE user32 = GetModuleHandleW(L"user32.dll")) {
+			const auto post = reinterpret_cast<decltype(&PostThreadMessageW)>(
+				GetProcAddress(user32, "PostThreadMessageW"));
+			if (post) {
+				post(main_thread_id, WM_QUIT, 0, 0);
+			}
+		}
 		ret = WaitForSingleObject(shutdown_event, 5000);
-		if (ret != WAIT_OBJECT_0)
+		if (ret != WAIT_OBJECT_0) {
 			TerminateProcess(GetCurrentProcess(), (UINT)-1);
+		}
 	}
 
 	CloseHandle(parent);
@@ -81,8 +90,9 @@ int ExecuteBrowserSubprocess(void *sandbox_info)
 		SetEvent(shutdown_event);
 		shutdown_check.join();
 	}
-	if (shutdown_event)
+	if (shutdown_event) {
 		CloseHandle(shutdown_event);
+	}
 
 	return ret;
 }
