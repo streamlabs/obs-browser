@@ -48,6 +48,7 @@ struct BrowserSource {
 
 	bool tex_sharing_avail = false;
 	bool create_browser = false;
+	bool browser_creation_queued = false;
 	std::recursive_mutex lockBrowser;
 	CefRefPtr<CefBrowser> cefBrowser;
 	std::vector<std::string> messagesToApp;
