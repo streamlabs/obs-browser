@@ -142,15 +142,22 @@ void BrowserSource::Destroy()
 	destroying = true;
 	DestroyTextures();
 
-	lock_guard<mutex> lock(browser_list_mutex);
-	if (next) {
-		next->p_prev_next = p_prev_next;
+	{
+		lock_guard<mutex> lock(browser_list_mutex);
+		if (next) {
+			next->p_prev_next = p_prev_next;
+		}
+		*p_prev_next = next;
 	}
-	*p_prev_next = next;
-
-	QueueCEFTask([this]() { delete this; });
 
 	source = nullptr;
+	// Until the first successful creation post, no CEF task can reference this source.
+	if (!browser_creation_queued) {
+		delete this;
+		return;
+	}
+
+	QueueCEFTask([this]() { delete this; });
 }
 
 void BrowserSource::ExecuteOnBrowser(BrowserFunc func, bool async)
@@ -191,6 +198,9 @@ void BrowserSource::ExecuteOnBrowser(BrowserFunc func, bool async)
 bool BrowserSource::CreateBrowser()
 {
 	return QueueCEFTask([this]() {
+		if (destroying) {
+			return;
+		}
 #ifdef ENABLE_BROWSER_SHARED_TEXTURE
 		if (hwaccel) {
 			obs_enter_graphics();
@@ -592,6 +602,7 @@ void BrowserSource::Tick()
 	}
 
 	if (create_browser && CreateBrowser()) {
+		browser_creation_queued = true;
 		create_browser = false;
 	}
 #if defined(ENABLE_BROWSER_SHARED_TEXTURE)
