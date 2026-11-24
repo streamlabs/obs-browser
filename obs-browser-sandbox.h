@@ -11,8 +11,9 @@
 
 /*
  * Windows sandbox ABI shared by the OBS executable and obs-browser. Keep this
- * C-only surface stable: the main executable owns CEF's sandbox library, and
- * the plugin discovers its lifecycle functions dynamically.
+ * C-only surface stable: the host owns the CEF sandbox information, and the
+ * plugin discovers its access functions dynamically. With CEF bootstrap the
+ * host DLL returns a borrowed pointer and its destroy function does nothing.
  */
 #ifdef _WIN32
 

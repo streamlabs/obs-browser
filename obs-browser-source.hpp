@@ -38,6 +38,7 @@ enum class ControlLevel : int {
 inline constexpr ControlLevel DEFAULT_CONTROL_LEVEL = ControlLevel::ReadObs;
 
 extern bool hwaccel;
+bool obs_browser_initialized(void);
 
 struct BrowserSource {
 	BrowserSource **p_prev_next = nullptr;
@@ -47,6 +48,7 @@ struct BrowserSource {
 
 	bool tex_sharing_avail = false;
 	bool create_browser = false;
+	bool browser_creation_queued = false;
 	std::recursive_mutex lockBrowser;
 	CefRefPtr<CefBrowser> cefBrowser;
 	std::vector<std::string> messagesToApp;
@@ -127,7 +129,7 @@ struct BrowserSource {
 	void SendKeyClick(const struct obs_key_event *event, bool key_up);
 	void SetShowing(bool showing);
 	void SetActive(bool active);
-	void MessageToBrowser(const char* message);
+	void MessageToBrowser(const char *message);
 	void Refresh();
 
 #if defined(BROWSER_EXTERNAL_BEGIN_FRAME_ENABLED) && defined(ENABLE_BROWSER_SHARED_TEXTURE)
